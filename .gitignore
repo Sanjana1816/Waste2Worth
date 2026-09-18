@@ -1,0 +1,20 @@
+# secrets
+.env
+.env.local
+**/.vakh_tokens.json
+
+# python
+__pycache__/
+.venv/
+.pytest_cache/
+backend/*.db
+backend/uploads/
+
+# node
+node_modules/
+frontend/dist/
+
+# editor / tools
+.claude/
+.vscode/
+.DS_Store
