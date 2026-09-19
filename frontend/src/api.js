@@ -1,4 +1,7 @@
-export const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+const RAW_API = (import.meta.env.VITE_API_URL || "http://localhost:8000").trim().replace(/\/+$/, "");
+// Accept "my-api.up.railway.app" as well as "https://my-api.up.railway.app".
+export const API_BASE = /^https?:\/\//i.test(RAW_API) ? RAW_API
+  : `${/^(localhost|127\.0\.0\.1)(:|$)/.test(RAW_API) ? "http" : "https"}://${RAW_API}`;
 
 export class ApiError extends Error {
   constructor(status, detail) {
@@ -44,6 +47,10 @@ async function request(path, { method = "GET", body, form, raw } = {}) {
   const type = res.headers.get("content-type") || "";
   const data = raw && res.ok ? await res.blob() : type.includes("json") ? await res.json() : await res.text();
   if (!res.ok) throw new ApiError(res.status, data?.detail ?? data);
+  if (!raw && !type.includes("json")) {
+    // e.g. the frontend host answered with its own index.html because the API URL is wrong
+    throw new ApiError(0, `The server at ${API_BASE} didn't return data. Check VITE_API_URL points to the backend.`);
+  }
   return data;
 }
 
