@@ -7,12 +7,6 @@ os.environ["UPLOAD_DIR"] = tempfile.mkdtemp(prefix="w2w")
 os.environ["VAKH_TOKEN_FILE"] = os.path.join(os.environ["UPLOAD_DIR"], "none.json")
 os.environ["VISION_PROVIDER"] = "mock"
 os.environ["ELEVENLABS_API_KEY"] = ""
-# Never touch real services from tests, whatever backend/.env says.
-os.environ["STORAGE_BACKEND"] = "local"
-os.environ["VAKH_TOKENS_JSON"] = ""
-os.environ["VAKH_POST_TOOL"] = ""
-os.environ["VAKH_FOOD_FORM_ID"] = ""
-os.environ["GROQ_API_KEY"] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

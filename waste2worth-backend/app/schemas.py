@@ -11,9 +11,9 @@ SourceType = Literal["business_surplus", "brand_second", "individual"]
 
 
 class OrgCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=80)
+    name: str = Field(min_length=2)
     role: OrgRole
-    phone: str | None = Field(default=None, pattern=r"^\+?[0-9 ]{8,16}$")
+    phone: str | None = None
     city: str = "Bengaluru"
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
@@ -23,15 +23,14 @@ class OrgCreate(BaseModel):
 class ListingBase(BaseModel):
     source_type: SourceType = "business_surplus"
     route: Route | None = None
-    # title/quantity/reason are checked by the listing validator so every problem is reported at once
-    title: str = Field(default="", max_length=120)
+    title: str = Field(min_length=4, max_length=120)
     description: str = Field(default="", max_length=2000)
-    quantity: float | None = None
+    quantity: float = Field(gt=0)
     unit: str
     weight_kg: float | None = Field(default=None, gt=0)
     condition: Condition
-    reason_code: str = ""
-    reason_detail: str = Field(default="", max_length=1000)
+    reason_code: str
+    reason_detail: str = Field(max_length=1000)
     brand: str | None = None
     product_name: str | None = None
     model_sku: str | None = None

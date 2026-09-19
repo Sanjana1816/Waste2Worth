@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -28,11 +27,9 @@ class VakhError(RuntimeError):
 
 def _load_tokens() -> dict:
     p = Path(settings.vakh_token_file)
-    if p.exists():
-        return json.loads(p.read_text())
-    if settings.vakh_tokens_json:   # e.g. on Railway, where there's no token file
-        return json.loads(settings.vakh_tokens_json)
-    raise NotConfigured("Vakh is not connected. Run `python -m scripts.vakh_login` first.")
+    if not p.exists():
+        raise NotConfigured("Vakh is not connected. Run `python -m scripts.vakh_login` first.")
+    return json.loads(p.read_text())
 
 
 async def _access_token(client: httpx.AsyncClient) -> str:
@@ -117,42 +114,25 @@ async def call_tool(name: str, arguments: dict) -> dict:
     return await _with_session(lambda s: s.request("tools/call", {"name": name, "arguments": arguments}))
 
 
-def _utc_z(dt) -> str | None:
-    """Vakh datetimes must be UTC with a trailing Z (offsets are rejected). Our DB stores naive UTC."""
-    if dt is None:
-        return None
-    if isinstance(dt, str):
-        dt = datetime.fromisoformat(dt.replace("Z", "+00:00"))
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-    return dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-
-
-def food_post_arguments(listing, seller_name: str, pickup_by_ist: str = "") -> dict:
-    """create_post arguments for the form made by scripts/vakh_setup.py (field ids must match it)."""
+def food_post_arguments(listing, seller_name: str, pickup_by_ist: str) -> dict:
+    """Arguments for the Vakh post tool. Check the real schema via GET /api/integrations/vakh/tools
+    and adjust these keys to match it. Vakh forms have Text, Number, Place and Date & Time fields."""
     a = listing.attributes or {}
-    fields = {
-        "title": listing.title,
-        "restaurant": seller_name,
-        "dish": a.get("dish_name") or listing.title,
-        "quantity": int(listing.quantity_available),
-        "unit": listing.unit,
-        "pickup_by": {"start": _utc_z(listing.pickup_by), "precision": "minute"},
-        "location": {"city": "Bengaluru", "country": "IN", "lat": round(listing.lat, 5), "lng": round(listing.lng, 5)},
-        "details": listing.reason_detail,
-        "listing_link": [f"{settings.public_app_url.rstrip('/')}/listing/{listing.id}"],
+    return {
+        "form_id": settings.vakh_food_form_id,
+        "fields": {
+            "Title": listing.title,
+            "Restaurant": seller_name,
+            "Plates": listing.quantity_available,
+            "Diet": a.get("diet"),
+            "Pickup by": pickup_by_ist,
+            "Where": {"lat": listing.lat, "lng": listing.lng},
+            "Details": listing.reason_detail,
+        },
     }
-    if a.get("diet"):
-        fields["diet"] = [a["diet"]]            # option values: the server maps the value slug to its id
-    if a.get("cooked_at"):
-        fields["cooked_at"] = {"start": _utc_z(a["cooked_at"]), "precision": "minute"}
-    return {"form_id": settings.vakh_food_form_id, "fields": fields}
 
 
 async def publish_food(listing, seller_name: str, pickup_by_ist: str) -> dict:
     if not (settings.vakh_post_tool and settings.vakh_food_form_id):
-        raise NotConfigured("Vakh form not set up yet. Run `python -m scripts.vakh_setup`.")
-    result = await call_tool(settings.vakh_post_tool, food_post_arguments(listing, seller_name, pickup_by_ist))
-    if result.get("isError"):
-        raise VakhError(" ".join(c.get("text", "") for c in result.get("content", []))[:300])
-    return result
+        raise NotConfigured("Set VAKH_POST_TOOL and VAKH_FOOD_FORM_ID (see the README).")
+    return await call_tool(settings.vakh_post_tool, food_post_arguments(listing, seller_name, pickup_by_ist))

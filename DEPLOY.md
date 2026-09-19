@@ -14,7 +14,7 @@ All of it fits in free tiers. Allow about an hour.
 | **ElevenLabs API key** | For voice | https://elevenlabs.io → profile → *API Keys* → *Create*. Give it access to Speech to Text, Text to Speech and Agents | `ELEVENLABS_API_KEY` |
 | ElevenLabs agent ID + phone number ID | For the live NGO call | Step 7a | `ELEVENLABS_AGENT_ID`, `ELEVENLABS_PHONE_NUMBER_ID` |
 | Twilio account | For the live NGO call | https://www.twilio.com/try-twilio (free trial credit) | Connected inside ElevenLabs |
-| Vakh account + tokens | For the Vakh bonus | Step 7b | `VAKH_TOKENS_JSON`, `VAKH_POST_TOOL`, `VAKH_FOOD_FORM_ID` |
+| Vakh login (no key) | For the Vakh bonus | Step 7b | `VAKH_TOKENS_JSON`, `VAKH_POST_TOOL`, `VAKH_FOOD_FORM_ID` |
 
 Never commit keys. `.env` files are git-ignored; in production, keys go into Railway / Vercel variables.
 
@@ -131,17 +131,19 @@ Speech-to-text (the mic on the Food page) and "Listen" buttons only need `ELEVEN
 The browser only allows the microphone on `https://` or `localhost`, so it works on Vercel.
 
 ### 7b. Vakh community boards
-1. Sign up at https://vakh.com. Create a public form **"Food Rescue · Bengaluru"** with fields:
-   Title (Text), Restaurant (Text), Plates (Number), Diet (Text), Pickup by (Date & Time), Where (Place), Details (Text).
-   Create a **"Verified NGO"** badge too.
-2. On your laptop: `cd backend` → `python -m scripts.vakh_login`. Your browser opens, you approve, and it saves `.vakh_tokens.json`.
-3. Run the backend locally and open http://localhost:8000/api/integrations/vakh/tools. Find the tool that creates a
-   post and note its **name**, its **input schema** and your form's **ID**.
-4. Set `VAKH_POST_TOOL` and `VAKH_FOOD_FORM_ID`. If the schema's argument names differ from what
-   `food_post_arguments()` in `backend/app/services/vakh.py` sends, adjust that one function (about 10 lines).
-5. For Railway: paste the whole contents of `.vakh_tokens.json` into a `VAKH_TOKENS_JSON` variable.
+Vakh has no API key: it uses a login. The form itself is created for you.
+1. Sign up at https://vakh.com.
+2. `cd backend`, then `.venv\Scripts\python -m scripts.vakh_login`. Approve in the browser; the terminal prints "Connected!".
+3. `.venv\Scripts\python -m scripts.vakh_setup`. This creates the **Food Rescue · Waste2Worth** form (title, restaurant,
+   dish, quantity, diet, cooked at, pick up before, map location, details, claim link) and writes
+   `VAKH_POST_TOOL` and `VAKH_FOOD_FORM_ID` into `backend/.env`. It's safe to re-run.
+4. In the Vakh app, open that form → **Access** → set **Public access** to **Read**, so NGOs can find and follow it.
+   (Vakh only lets people change sharing, not apps.) Optionally add a **Map** view so pickups show on a map.
+5. For Railway: add `VAKH_POST_TOOL`, `VAKH_FOOD_FORM_ID`, `PUBLIC_APP_URL` (your Vercel URL), and paste the whole
+   contents of `backend/.vakh_tokens.json` into `VAKH_TOKENS_JSON`.
 
-This step is **untested**: the tool name and argument shape are only visible after you log in.
+Now every published food listing also appears as a post on that form. Photos aren't sent, because Vakh doesn't accept
+uploads from apps yet.
 
 ---
 

@@ -23,25 +23,9 @@ def list_orgs(role: str | None = None, session: Session = Depends(get_session)):
     return session.exec(stmt).all()
 
 
-@router.get("/orgs/{org_id}")
-def get_org(org_id: int, session: Session = Depends(get_session)):
-    org = session.get(Org, org_id)
-    if not org:
-        raise HTTPException(404, "org not found")
-    return org
-
-
 @router.post("/orgs", status_code=201)
 def create_org(body: OrgCreate, session: Session = Depends(get_session)):
-    unknown = [c for c in body.accepts_categories if not get_spec(c)]
-    if unknown:
-        raise HTTPException(422, f"unknown categories: {', '.join(unknown)}")
-    name_taken = session.exec(select(Org).where(Org.name == body.name.strip())).first()
-    if name_taken:
-        raise HTTPException(409, "an account with this name already exists")
-    data = body.model_dump()
-    data["name"] = body.name.strip()
-    org = Org(**data)   # new accounts start unverified; an admin verifies NGOs and recyclers
+    org = Org(**body.model_dump())   # new orgs start unverified; an admin verifies NGOs and recyclers
     session.add(org)
     session.commit()
     session.refresh(org)
@@ -101,12 +85,10 @@ def certificate(org_id: int, session: Session = Depends(get_session)):
 def integrations():
     return {
         "vision_provider": settings.vision_provider,
-        "groq": bool(settings.groq_api_key),
         "gemini": bool(settings.gemini_api_key),
-        "storage": settings.storage_backend,
         "elevenlabs": bool(settings.elevenlabs_api_key),
         "elevenlabs_calls": bool(settings.elevenlabs_agent_id and settings.elevenlabs_phone_number_id),
-        "vakh_connected": Path(settings.vakh_token_file).exists() or bool(settings.vakh_tokens_json),
+        "vakh_connected": Path(settings.vakh_token_file).exists(),
         "vakh_post_tool": settings.vakh_post_tool,
     }
 

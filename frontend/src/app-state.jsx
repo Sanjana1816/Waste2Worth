@@ -13,9 +13,8 @@ export function PersonaProvider({ children }) {
   });
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    api.orgs().then(setOrgs).catch((e) => setError(e));
-  }, []);
+  const reload = useCallback(() => api.orgs().then(setOrgs).catch((e) => setError(e)), []);
+  useEffect(() => { reload(); }, [reload]);
 
   const choose = useCallback((next) => {
     setId(next);
@@ -23,7 +22,7 @@ export function PersonaProvider({ children }) {
   }, []);
 
   const persona = orgs.find((o) => o.id === id) || orgs.find((o) => o.role === "business") || null;
-  const value = useMemo(() => ({ orgs, persona, choose, error }), [orgs, persona, choose, error]);
+  const value = useMemo(() => ({ orgs, persona, choose, error, reload }), [orgs, persona, choose, error, reload]);
   return <PersonaCtx.Provider value={value}>{children}</PersonaCtx.Provider>;
 }
 

@@ -18,3 +18,4 @@ frontend/dist/
 .claude/
 .vscode/
 .DS_Store
+backend/vakh_tools.json

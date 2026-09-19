@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db import init_db
-from app.routers import accounts, ai, donations, listings, meta, pools
+from app.routers import ai, donations, listings, meta, pools
 from app.services.validation import ValidationFailed
 
 
@@ -24,8 +24,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
-app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_origin_regex=settings.cors_origin_regex,
-                   allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True,
+                   allow_methods=["*"], allow_headers=["*"])
 
 
 @app.exception_handler(ValidationFailed)
@@ -33,12 +33,11 @@ async def validation_failed(_: Request, exc: ValidationFailed):
     return JSONResponse(status_code=422, content={"detail": exc.errors})
 
 
-for r in (listings.router, pools.router, donations.router, ai.router, meta.router, accounts.router):
+for r in (listings.router, pools.router, donations.router, ai.router, meta.router):
     app.include_router(r)
 
-if settings.storage_backend == "local":
-    Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
+Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
 
 @app.get("/health", tags=["meta"])

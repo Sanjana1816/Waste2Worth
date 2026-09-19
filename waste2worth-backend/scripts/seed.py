@@ -10,9 +10,7 @@ All organisations are fictional.
 from __future__ import annotations
 
 import asyncio
-import io
-import os
-import re
+import shutil
 import sys
 import uuid
 from datetime import timedelta
@@ -21,10 +19,10 @@ from pathlib import Path
 from sqlmodel import Session, SQLModel, select
 
 from app.catalog import get_spec
+from app.config import settings
 from app.db import engine, init_db
 from app.models import Claim, Listing, ListingImage, ListingStatus, Org, OrgRole, utcnow
-from app.schemas import PoolRequest
-from app.services import dispatch, imaging, listings as svc, pooling, storage
+from app.services import dispatch, imaging, listings as svc
 from scripts.synth import COOL_SHADE, DAYLIGHT, WARM_BULB, photo
 
 ORGS = [
@@ -133,79 +131,32 @@ def listings(now) -> list[dict]:
     ]
 
 
-PHOTO_DIR = Path(__file__).resolve().parent.parent / "demo_photos"
-PHOTO_EXTS = (".jpg", ".jpeg", ".png", ".webp")
-
-
-def slug(title: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
-
-
-def real_photos(title: str) -> dict[str, bytes] | list[bytes]:
-    """Photos you put in demo_photos/<listing-slug>/. Name them after the shot (full_lot.jpg,
-    color_reference.jpg...) or use any names, and they fill the required shots in order."""
-    folder = PHOTO_DIR / slug(title)
-    if not folder.is_dir():
-        return {}
-    files = sorted(f for f in folder.iterdir() if f.suffix.lower() in PHOTO_EXTS)
-    return {f.stem.lower(): f.read_bytes() for f in files}
-
-
 def reset() -> None:
     SQLModel.metadata.drop_all(engine)
-    storage.clear_local()
+    shutil.rmtree(settings.upload_dir, ignore_errors=True)
 
 
-def _store(session: Session, li: Listing, shot_key: str, data: bytes) -> None:
-    img = imaging.open_image(data)
-    result = imaging.analyze(img, shot_key)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=85)
-    key = storage.save(f"{li.id}/{shot_key}_{uuid.uuid4().hex[:10]}.jpg", buf.getvalue())
-    session.add(ListingImage(listing_id=li.id, shot_type=shot_key, path=key, **result))
-
-
-def add_photos(session: Session, spec, li: Listing, color, light) -> int:
-    """Store a photo for every required shot: your real one if provided, otherwise a synthetic one.
-    Returns how many real photos were used."""
+def add_photos(session: Session, spec, li: Listing, color, light) -> None:
     tint, exposure = light
-    required = svc.required_shots(spec, li)
-    extra = [s for s in spec.shots if not s.required and s not in required]
-    shots = required + extra[: max(0, spec.min_images - len(required))]
-    mine = real_photos(li.title)
-    named = {s.key: mine.pop(s.key) for s in shots if s.key in mine}
-    unnamed = list(mine.values())          # files not named after a shot fill the gaps in order
-    used = 0
-    for i, shot in enumerate(shots):
-        data = named.get(shot.key) or (unnamed.pop(0) if unnamed else None)
-        if data:
-            used += 1
-            result = imaging.analyze(imaging.open_image(data), shot.key)
-            if not result["quality_ok"]:
-                raise SystemExit(f"Your photo for '{li.title}' / {shot.key} didn't pass the checks: "
-                                 f"{'; '.join(imaging.describe_issues(result['issues']))}")
-        else:
-            data = photo(color, tint=tint, exposure=exposure, seed=li.id * 10 + i)
-        _store(session, li, shot.key, data)
+    for i, shot in enumerate(svc.required_shots(spec, li)):
+        data = photo(color, tint=tint, exposure=exposure, seed=li.id * 10 + i)
+        img = imaging.open_image(data)
+        result = imaging.analyze(img, shot.key)
+        folder = Path(settings.upload_dir) / str(li.id)
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / f"{shot.key}_{uuid.uuid4().hex[:10]}.jpg"
+        img.save(path, format="JPEG", quality=88)
+        session.add(ListingImage(listing_id=li.id, shot_type=shot.key, path=str(path), **result))
+    # top up to the minimum count with optional shots
+    extra = [s for s in spec.shots if not s.required]
+    have = len(svc.required_shots(spec, li))
+    for j, shot in enumerate(extra[: max(0, spec.min_images - have)]):
+        data = photo(color, tint=tint, exposure=exposure, seed=li.id * 10 + 9 - j)
+        img = imaging.open_image(data)
+        path = Path(settings.upload_dir) / str(li.id) / f"{shot.key}_{uuid.uuid4().hex[:10]}.jpg"
+        img.save(path, format="JPEG", quality=88)
+        session.add(ListingImage(listing_id=li.id, shot_type=shot.key, path=str(path), **imaging.analyze(img, shot.key)))
     session.commit()
-    return used
-
-
-def photo_guide() -> None:
-    """Create an empty folder per demo listing and list the shots each one needs."""
-    PHOTO_DIR.mkdir(exist_ok=True)
-    print(f"Put photos in {PHOTO_DIR}, one folder per listing, named after the shot (e.g. full_lot.jpg):\n")
-    for raw in listings(utcnow()):
-        spec = get_spec(raw["category"])
-        folder = PHOTO_DIR / slug(raw["title"])
-        folder.mkdir(exist_ok=True)
-        shots = [s.key for s in spec.shots if s.required]
-        if raw.get("source_type") == "brand_second":
-            shots.append("defect_closeup")
-        if raw["category"] == "electronics" and raw["attributes"].get("working_status") != "not_working":
-            shots.append("powered_on")
-        print(f"  {folder.name}/\n      {', '.join(shots)}")
-    print("\nFolders you leave empty keep the placeholder photos. Then run: python -m scripts.seed --reset")
 
 
 def run(do_reset: bool = False) -> None:
@@ -217,11 +168,8 @@ def run(do_reset: bool = False) -> None:
             print("Database already has data. Use --reset to start over.")
             return
         orgs = {}
-        demo_phone = os.environ.get("DEMO_NGO_PHONE")  # your own number, to receive the NGO call on stage
         for o in ORGS:
             org = Org(**o)
-            if demo_phone and o["name"] == "Full Plate Foundation":
-                org.phone = demo_phone
             session.add(org)
             orgs[o["name"]] = org
         session.commit()
@@ -238,14 +186,12 @@ def run(do_reset: bool = False) -> None:
             session.add(li)
             session.commit()
             session.refresh(li)
-            real = add_photos(session, spec, li, color, light)
-            if not real:
-                li.ai_summary = {"demo_photos": True}  # synthetic photos: the UI shows illustrations on cards
+            add_photos(session, spec, li, color, light)
             state = svc.publish(session, spec, li)
             if not state["ready"]:
                 raise SystemExit(f"seed listing '{li.title}' not publishable: {state}")
             tag = f" colour {li.measured_color_hex}" if li.measured_color_hex else ""
-            print(f"  published #{li.id:<3} {li.route:<8} {li.title}{tag}{f'  ({real} real photos)' if real else ''}")
+            print(f"  published #{li.id:<3} {li.route:<8} {li.title}{tag}")
             if do_dispatch:
                 for log in asyncio.run(dispatch.dispatch_food(session, li)):
                     print(f"      dispatch {log.channel}: {log.status}")
@@ -256,18 +202,8 @@ def run(do_reset: bool = False) -> None:
                                            status="picked_up", picked_up_at=utcnow())])
                 session.commit()
                 print(f"      claimed and picked up by {ngo.name}")
-        # A couple of completed orders so the impact numbers aren't empty.
-        by_title = {li.title: li for li in session.exec(select(Listing)).all()}
-        for buyer, title, qty in (("Ravi Renovations", "Mesh-back office chairs", 10),
-                                  ("MetalMart Scrap Traders", "TMT rebar off-cuts", 350)):
-            req = PoolRequest(buyer_id=orgs[buyer].id, listing_id=by_title[title].id, quantity=qty)
-            pool = pooling.confirm(session, pooling.reserve(session, req))
-            print(f"  order #{pool.id}: {buyer} bought {qty:g} of '{title}' for Rs {pool.total:,.0f}")
         print(f"Seeded {len(ORGS)} organisations.")
 
 
 if __name__ == "__main__":
-    if "--photos" in sys.argv:
-        photo_guide()
-    else:
-        run("--reset" in sys.argv)
+    run("--reset" in sys.argv)

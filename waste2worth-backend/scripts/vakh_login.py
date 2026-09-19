@@ -34,8 +34,7 @@ def main() -> None:
         "grant_types": ["authorization_code", "refresh_token"], "response_types": ["code"],
         "token_endpoint_auth_method": "none", "scope": SCOPE,
     })
-    if reg.status_code >= 400:
-        raise SystemExit(f"Vakh refused the app registration ({reg.status_code}): {reg.text[:500]}")
+    reg.raise_for_status()
     client_id = reg.json()["client_id"]
 
     verifier = secrets.token_urlsafe(64)
@@ -55,26 +54,16 @@ def main() -> None:
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.end_headers()
-            self.wfile.write(b"<h2>Approved. Go back to the terminal to see if the login finished.</h2>")
+            self.wfile.write(b"<h2>Waste2Worth is connected to Vakh. You can close this tab.</h2>")
 
         def log_message(self, *args):
             pass
 
     print("Opening Vakh sign-in in your browser...\nIf it doesn't open, visit:\n" + url)
     webbrowser.open(url)
-    class Server(HTTPServer):
-        timed_out = False
-
-        def handle_timeout(self):
-            self.timed_out = True
-
-    server = Server(("127.0.0.1", PORT), Handler)
-    server.timeout = 300
-    print("Waiting for you to approve in the browser (up to 5 minutes)...")
+    server = HTTPServer(("127.0.0.1", PORT), Handler)
     while "code" not in got and "error" not in got:
         server.handle_request()
-        if server.timed_out:
-            raise SystemExit("Timed out waiting for the browser approval. Run the command again.")
     if got.get("error") or got.get("state") != state:
         raise SystemExit(f"Login failed: {got.get('error_description') or got.get('error') or 'state mismatch'}")
 
@@ -82,17 +71,14 @@ def main() -> None:
         "grant_type": "authorization_code", "code": got["code"], "redirect_uri": REDIRECT,
         "client_id": client_id, "code_verifier": verifier, "resource": RESOURCE,
     })
-    if tok.status_code >= 400:
-        raise SystemExit(f"Vakh approved, but the token exchange failed ({tok.status_code}): {tok.text[:500]}")
+    tok.raise_for_status()
     t = tok.json()
-    out = Path(settings.vakh_token_file).resolve()
-    out.write_text(json.dumps({
+    Path(settings.vakh_token_file).write_text(json.dumps({
         "access_token": t["access_token"], "refresh_token": t.get("refresh_token"),
         "expires_at": time.time() + int(t.get("expires_in", 3600)),
         "client_id": client_id, "token_endpoint": meta["token_endpoint"], "resource": RESOURCE,
     }, indent=2))
-    print(f"Connected! Saved tokens to {out}")
-    print("Next: python -m scripts.vakh_tools")
+    print(f"Saved tokens to {settings.vakh_token_file}. Next: GET /api/integrations/vakh/tools")
 
 
 if __name__ == "__main__":

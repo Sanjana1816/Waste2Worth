@@ -65,5 +65,6 @@ Use the **Acting as** menu (top right) to switch between the demo accounts.
 | Food rescue, NGO calls, Vakh | `app/services/dispatch.py`, `voice.py`, `vakh.py` | `pages/Food.jsx` |
 | Vision AI (Groq / Gemini / Ollama / mock) | `app/services/vision.py` | Snap step |
 | Impact + certificate | `app/routers/meta.py` | `pages/Impact.jsx` |
+| Sign-up + seller/buyer dashboard | `app/routers/accounts.py`, `POST /api/orgs` | `pages/Join.jsx`, `pages/Dashboard.jsx` |
 
-The demo accounts are a stand-in for login. Before a real launch, add Supabase Auth and check permissions on every write.
+New users create an account on **Join**; the "Acting as" menu switches between accounts. This is a stand-in for login. Before a real launch, add Supabase Auth and check permissions on every write.

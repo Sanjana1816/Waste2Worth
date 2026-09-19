@@ -1,0 +1,7 @@
+.env
+.vakh_tokens.json
+*.db
+uploads/
+__pycache__/
+.pytest_cache/
+.venv/

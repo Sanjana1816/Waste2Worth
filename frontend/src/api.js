@@ -95,6 +95,9 @@ export const api = {
   impact: () => request("/api/impact/summary"),
   certificate: (orgId) => request(`/api/impact/orgs/${orgId}/certificate`),
   orgs: () => request("/api/orgs"),
+  createOrg: (body) => request("/api/orgs", { method: "POST", body }),
+  dashboard: (orgId) => request(`/api/orgs/${orgId}/dashboard`),
+  withdraw: (id) => request(`/api/listings/${id}/withdraw`, { method: "POST" }),
   integrations: () => request("/api/integrations/status"),
 };
 

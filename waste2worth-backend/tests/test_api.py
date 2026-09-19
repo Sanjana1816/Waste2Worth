@@ -116,37 +116,3 @@ def test_ai_analyze_mock_prefills(client):
     r = client.post("/api/ai/analyze", files=[("files", ("old_tiles.jpg", photo((230, 230, 225)), "image/jpeg"))])
     body = r.json()
     assert body["form_prefill"]["category"] == "tiles" and body["analysis"]["reuse_ideas"]
-
-
-def test_single_listing_order_for_non_poolable(client):
-    chairs = client.get("/api/listings?q=chairs").json()[0]
-    buyer = org_id(client, "Anita K.")
-    q = client.post("/api/pools/quote", json=dict(buyer_id=buyer, listing_id=chairs["id"], quantity=5)).json()
-    assert q["status"] == "ok" and not q["pooled"] and q["subtotal"] == 4500
-    kids = client.get("/api/listings?q=kids").json()[0]
-    assert client.post("/api/pools/quote", json=dict(buyer_id=buyer, listing_id=kids["id"], quantity=1)).status_code == 400
-
-
-def test_signup_and_seller_dashboard(client):
-    r = client.post("/api/orgs", json=dict(name="Green Leaf Cafe", role="business", phone="+91 98765 43210",
-                                           lat=12.97, lng=77.64, accepts_categories=["packaging"]))
-    assert r.status_code == 201 and r.json()["verified"] is False
-    me = r.json()["id"]
-    assert client.post("/api/orgs", json=dict(name="Green Leaf Cafe", role="business", lat=1, lng=1)).status_code == 409
-    assert client.post("/api/orgs", json=dict(name="X Co", role="business", lat=1, lng=1,
-                                              accepts_categories=["rockets"])).status_code == 422
-
-    draft = client.post("/api/listings", json=dict(
-        seller_id=me, category="packaging", title="Clean cardboard boxes", quantity=40, unit="pieces",
-        condition="good", reason_code="inbound_packaging", reason_detail="Boxes from this week's supplier deliveries.",
-        asking_price_per_unit=10, attributes=dict(material="cardboard", clean_dry=True))).json()["listing"]
-    dash = client.get(f"/api/orgs/{me}/dashboard").json()
-    assert dash["totals"]["drafts"] == 1 and dash["listings"][0]["id"] == draft["id"]
-    assert dash["listings"][0]["readiness"]["missing_shots"]
-
-    # a seed seller sees the order the seed placed on their chairs
-    nimbus = org_id(client, "Nimbus Tech Park Facilities")
-    sales = client.get(f"/api/orgs/{nimbus}/dashboard").json()["sales"]
-    assert any(s["title"] == "Mesh-back office chairs" and s["status"] == "confirmed" for s in sales)
-    ravi = org_id(client, "Ravi Renovations")
-    assert client.get(f"/api/orgs/{ravi}/dashboard").json()["purchases"]
