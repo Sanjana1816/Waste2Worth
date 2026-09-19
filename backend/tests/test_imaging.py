@@ -32,7 +32,8 @@ def test_overexposed_white_sheet_asks_for_retake():
 
 def test_quality_issues_are_flagged():
     assert "blurry" in analyze(photo(TILE, blur=True))["issues"]
-    assert "too_small" in analyze(photo(TILE, size=(640, 480)))["issues"]
+    assert "too_small" in analyze(photo(TILE, size=(240, 180)))["issues"]
+    assert "too_small" not in analyze(photo(TILE, size=(640, 480)))["issues"]   # typical web image is fine
     assert "too_dark" in analyze(photo(TILE, exposure=0.15))["issues"]
     assert "no_white_reference" in analyze(photo(TILE, paper=False))["issues"]
 

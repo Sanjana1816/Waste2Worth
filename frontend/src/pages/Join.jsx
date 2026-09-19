@@ -129,7 +129,7 @@ export default function Join() {
           <div className="fieldset">
             <h3>{CATEGORY_PROMPT[role]}</h3><p>We use this to send you the right items first.</p>
             <div className="row" style={{ gap: 8 }}>
-              {cats.filter((c) => role !== "ngo" || ["food_cooked", "clothing", "fabric", "furniture", "electronics"].includes(c.key))
+              {cats.filter((c) => role !== "ngo" || ["food_cooked", "clothing", "fabric", "furniture", "electronics", "other"].includes(c.key))
                 .map((c) => (
                   <button type="button" key={c.key} className="filter-chip" aria-pressed={form.accepts.includes(c.key)} onClick={() => toggleCat(c.key)}>{c.label}</button>
                 ))}

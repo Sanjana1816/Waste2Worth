@@ -243,7 +243,7 @@ _register(CategorySpec(
 _register(CategorySpec(
     key="clothing", label="Clothing", group="Textiles",
     routes=("resell", "donate", "recycle", "reuse"),
-    units=("pieces", "kg"),
+    units=("pieces", "kg", "sets", "pairs"),
     attributes=(
         Attr("garment_type", "Garment", "enum", options=("tshirt", "shirt", "hoodie", "jeans", "dress", "saree", "kurta", "jacket", "kidswear", "other")),
         Attr("sizes", "Sizes available", "text", help="e.g. S x10, M x20"),
@@ -262,7 +262,7 @@ _register(CategorySpec(
                      ("style_change", "No longer my style"), ("overstock", "Shop overstock"),
                      ("manufacturing_defect", "Factory defect"), ("customer_return", "Customer return")),
     provenance_required=("brand",),
-    new_price={"pieces": 700, "kg": 1400}, unit_weight_kg={"pieces": 0.4, "kg": 1},
+    new_price={"pieces": 700, "kg": 1400}, unit_weight_kg={"pieces": 0.4, "kg": 1, "sets": 0.8, "pairs": 0.3},
     scrap_price_per_kg=8, co2_kg_per_kg=15.0,
     reuse_ideas=("Cropped / upcycled fit", "Cushion cover", "Cleaning rags", "Kids' clothes from adult sizes"),
 ))
@@ -309,7 +309,7 @@ _register(CategorySpec(
 _register(CategorySpec(
     key="furniture", label="Furniture", group="Institutions & offices",
     routes=("resell", "donate", "reuse", "recycle"),
-    units=("pieces",),
+    units=("pieces", "sets"),
     attributes=(
         Attr("item_type", "Item", "enum", options=("chair", "table", "desk", "cabinet", "shelf", "sofa", "bed", "bench", "other")),
         Attr("material", "Main material", "enum", options=("wood", "metal", "plastic", "upholstered", "mixed")),
@@ -325,7 +325,7 @@ _register(CategorySpec(
     min_images=3,
     reasons=_reasons(("office_refresh", "Office / campus refurbishment"), ("relocation", "Moving out"),
                      ("upgrade", "Replaced with new"), ("business_closure", "Business closing")),
-    new_price={"pieces": 6000}, unit_weight_kg={"pieces": 15},
+    new_price={"pieces": 6000}, unit_weight_kg={"pieces": 15, "sets": 40},
     scrap_price_per_kg=5, co2_kg_per_kg=1.5,
     option_attr="item_type",
     by_option={"chair": {"new_price": 3500, "unit_weight_kg": 7}, "sofa": {"new_price": 25000, "unit_weight_kg": 40},
@@ -357,7 +357,7 @@ _register(CategorySpec(
 _register(CategorySpec(
     key="food_cooked", label="Cooked food (surplus)", group="Food",
     routes=("donate",),
-    units=("plates", "kg"),
+    units=("plates", "packets", "boxes", "kg"),
     attributes=(
         Attr("dish_name", "Dish", "text"),
         Attr("diet", "Type", "enum", options=("veg", "non_veg", "egg", "vegan", "jain")),
@@ -373,9 +373,47 @@ _register(CategorySpec(
     min_images=2,
     reasons=_reasons(("end_of_day", "End-of-day surplus"), ("event_leftover", "Event / wedding leftover"),
                      ("overproduction", "Cooked too much"), ("cancelled_order", "Cancelled bulk order")),
-    unit_weight_kg={"plates": 0.3, "kg": 1},
+    unit_weight_kg={"plates": 0.3, "packets": 0.3, "boxes": 0.5, "kg": 1},
     co2_kg_per_kg=2.5,
     perishable=True,
+))
+
+_register(CategorySpec(
+    key="other", label="Other item", group="Anything else",
+    routes=("resell", "donate", "reuse", "recycle"),
+    units=("pieces", "kg", "sets", "pairs", "boxes", "litres", "metres"),
+    attributes=(
+        Attr("item_name", "What is it?", "text", help="e.g. Steel water bottle, study lamp, backpack"),
+        Attr("material", "Main material", "enum",
+             options=("plastic", "metal", "glass", "wood", "fabric", "paper", "ceramic", "rubber", "electronic", "mixed")),
+        Attr("works_as_intended", "Works / usable as it is", "bool"),
+        Attr("size", "Size or capacity", "text", required=False, help="e.g. 1 litre, 40 x 30 cm"),
+        Attr("clean", "Clean and hygienic", "bool", required=False),
+    ),
+    shots=(
+        Shot("front", "Front", "The whole item, in good light."),
+        Shot("detail", "Close-up or label", "A close-up of any label, brand mark, or wear and damage."),
+        Shot("other_side", "Other side", "The back or another angle.", required=False),
+    ),
+    min_images=2,
+    reasons=_reasons(("no_longer_needed", "Don't need it any more"), ("unused_gift", "Unused gift"),
+                     ("upgrade", "Replaced with a new one"), ("extra", "Have an extra / duplicate"),
+                     ("moving", "Moving house"), ("broken", "Broken or damaged")),
+    # No reference price: sellers reselling an "other" item must give the price when new (see validation).
+    new_price={}, unit_weight_kg={"pieces": 0.5, "kg": 1, "sets": 1.5, "pairs": 0.5, "boxes": 2, "litres": 1, "metres": 0.3},
+    scrap_price_per_kg=5, co2_kg_per_kg=2.0,
+    option_attr="material",
+    by_option={
+        "plastic": {"co2_kg_per_kg": 3.0, "scrap_price_per_kg": 12},
+        "metal": {"co2_kg_per_kg": 4.0, "scrap_price_per_kg": 30},
+        "glass": {"co2_kg_per_kg": 1.0, "scrap_price_per_kg": 2},
+        "wood": {"co2_kg_per_kg": 0.5, "scrap_price_per_kg": 4},
+        "fabric": {"co2_kg_per_kg": 8.0, "scrap_price_per_kg": 8},
+        "paper": {"co2_kg_per_kg": 1.1, "scrap_price_per_kg": 9},
+        "electronic": {"co2_kg_per_kg": 30.0, "scrap_price_per_kg": 40},
+    },
+    reuse_ideas=("Give it to a friend or neighbour who needs one", "Repurpose it for storage or organising",
+                 "Turn it into a planter or decor piece", "Take usable parts for repairs"),
 ))
 
 # Hours a cooked-food listing stays claimable after cooking, by storage mode.

@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     public_app_url: str = "http://localhost:5173"   # frontend URL, used in links posted to Vakh
 
     # Image quality gates
-    min_image_short_side: int = 720
+    min_image_short_side: int = 200   # only reject tiny thumbnails/icons; web images are often < 720 px
     blur_threshold: float = 35.0
     max_upload_mb: int = 12
 

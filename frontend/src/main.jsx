@@ -15,8 +15,10 @@ import Join from "./pages/Join";
 import Dashboard from "./pages/Dashboard";
 
 function PersonaPicker() {
-  const { orgs, persona, choose } = usePersona();
+  const { orgs, persona, choose, status } = usePersona();
   const nav = useNavigate();
+  if (status === "loading" && !orgs.length) return <span className="chip chip-neutral">Connecting…</span>;
+  if (status === "error" && !orgs.length) return <span className="chip chip-bad" title="Retrying automatically">Server unreachable · retrying</span>;
   if (!orgs.length) return null;
   const groups = Object.keys(ROLE_LABEL).map((role) => [role, orgs.filter((o) => o.role === role)]).filter(([, xs]) => xs.length);
   return (

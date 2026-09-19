@@ -7,10 +7,29 @@ import { Empty, Field, ListingCard, Spinner } from "../components/ui";
 
 const SAMPLE = "Chalis plates veg biryani bache hain, cooked at 7 pm, packed in containers";
 
-function Recorder({ onAudio, disabled }) {
+const BrowserSpeech = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+/** Records audio for ElevenLabs speech-to-text, or uses the browser's own speech recognition
+ *  (Chrome, Edge, Android) when the server has no ElevenLabs key. */
+function Recorder({ useServer, onAudio, onText, onProblem, disabled }) {
   const [rec, setRec] = useState(null);
   const chunks = useRef([]);
-  const start = async () => {
+
+  const startBrowser = () => {
+    const r = new BrowserSpeech();
+    r.lang = "en-IN";              // understands Indian English and romanised Hinglish
+    r.interimResults = false;
+    r.maxAlternatives = 1;
+    r.onresult = (e) => onText(Array.from(e.results).map((x) => x[0].transcript).join(" "));
+    r.onerror = (e) => onProblem(e.error === "not-allowed"
+      ? "Microphone blocked. Allow mic access in the browser, or type the listing instead."
+      : "Didn't catch that. Tap the mic and try again, or type it.");
+    r.onend = () => setRec(null);
+    r.start();
+    setRec(r);
+  };
+
+  const startServer = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
@@ -20,8 +39,14 @@ function Recorder({ onAudio, disabled }) {
       mr.start();
       setRec(mr);
     } catch {
-      onAudio(null, "Microphone blocked. Allow mic access or type the listing instead.");
+      onProblem("Microphone blocked. Allow mic access in the browser, or type the listing instead.");
     }
+  };
+
+  const start = () => {
+    if (useServer) startServer();
+    else if (BrowserSpeech) startBrowser();
+    else onProblem("Voice input needs Chrome or Edge on this device. Type the listing instead.");
   };
   const stop = () => { rec?.stop(); setRec(null); };
   return (
@@ -34,8 +59,9 @@ function Recorder({ onAudio, disabled }) {
 export default function Food() {
   const nav = useNavigate();
   const toast = useToast();
-  const { persona } = usePersona();
+  const { persona, status } = usePersona();
   const [text, setText] = useState("");
+  const [serverVoice, setServerVoice] = useState(false);
   const [draft, setDraft] = useState(null);
   const [transcript, setTranscript] = useState("");
   const [reason, setReason] = useState({ code: "end_of_day", detail: "" });
@@ -45,15 +71,14 @@ export default function Food() {
 
   const loadLive = () => api.listings({ category: "food_cooked", route: "donate" }).then(setLive).catch(() => setLive([]));
   useEffect(() => { loadLive(); }, []);
+  useEffect(() => { api.integrations().then((i) => setServerVoice(!!i.elevenlabs)).catch(() => {}); }, []);
 
   const handle = async (p) => {
     setBusy(true); setErr(null);
     try { const r = await p; setTranscript(r.transcript); setDraft(r.draft); } catch (e) { setErr(errorText(e)); } finally { setBusy(false); }
   };
-  const onAudio = (blob, problem) => {
-    if (problem) { setErr(problem); return; }
-    handle(api.voiceDraft(persona.id, blob));
-  };
+  const onAudio = (blob) => handle(api.voiceDraft(persona?.id || 0, blob));
+  const onSpoken = (said) => { setText(said); handle(api.textDraft(said)); };
   const setA = (k, v) => setDraft((d) => ({ ...d, attributes: { ...d.attributes, [k]: v } }));
 
   const create = async () => {
@@ -82,15 +107,17 @@ export default function Food() {
 
       <div className="grid grid-2" style={{ alignItems: "start" }}>
         <div className="card card-pad stack" style={{ gap: 18, background: "linear-gradient(180deg, var(--orange-soft), var(--surface) 55%)" }}>
-          {!isKitchen && <div className="alert alert-warn small">Switch to a kitchen account, e.g. Spice Route Kitchen, to post food.</div>}
+          {!persona && status !== "ready" && <div className="alert alert-warn small">{status === "error" ? "Can't reach the server. Retrying…" : "Connecting…"}</div>}
+          {persona && !isKitchen && <div className="alert alert-warn small">You can try the parser, but to post food switch to a kitchen account (e.g. Spice Route Kitchen) in the <b>Acting as</b> menu.</div>}
           <div className="row" style={{ gap: 18, flexWrap: "nowrap" }}>
-            <Recorder onAudio={onAudio} disabled={busy || !isKitchen} />
+            <Recorder useServer={serverVoice} onAudio={onAudio} onText={onSpoken} onProblem={setErr} disabled={busy} />
             <div><b style={{ fontFamily: "var(--display)", fontSize: 22 }}>Tap and speak</b>
-              <p className="small muted">Hindi, English or Hinglish. E.g. “{SAMPLE}”</p></div>
+              <p className="small muted">Hindi, English or Hinglish. E.g. “{SAMPLE}”</p>
+              {!serverVoice && <p className="tiny muted">Using your browser's speech recognition.</p>}</div>
           </div>
           <div className="row" style={{ flexWrap: "nowrap" }}>
             <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="…or type it here" aria-label="Describe the food" />
-            <button className="btn btn-dark" onClick={() => handle(api.textDraft(text || SAMPLE))} disabled={busy || !isKitchen}>{busy ? <Spinner /> : "Parse"}</button>
+            <button className="btn btn-dark" onClick={() => handle(api.textDraft(text.trim() || SAMPLE))} disabled={busy}>{busy ? <Spinner /> : text.trim() ? "Parse" : "Try example"}</button>
           </div>
           {err && <div className="alert alert-bad">{err}</div>}
 
@@ -103,7 +130,8 @@ export default function Food() {
                 <Field label="Quantity" required>
                   <div className="row" style={{ flexWrap: "nowrap" }}>
                     <input className="input" type="number" value={draft.quantity ?? ""} onChange={(e) => setDraft((d) => ({ ...d, quantity: e.target.value }))} />
-                    <select className="select" style={{ maxWidth: 110 }} value={draft.unit} onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}><option>plates</option><option>kg</option></select>
+                    <select className="select" style={{ maxWidth: 120 }} value={draft.unit} onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}>
+                      {["plates", "packets", "boxes", "kg"].map((u) => <option key={u}>{u}</option>)}</select>
                   </div>
                 </Field>
                 <Field label="Type" required error={!draft.attributes.diet ? "Please confirm veg / non-veg" : null}>
@@ -133,7 +161,8 @@ export default function Food() {
                   <input className="input" value={reason.detail} onChange={(e) => setReason((r) => ({ ...r, detail: e.target.value }))} placeholder="e.g. A corporate lunch order was cancelled" />
                 </Field>
               </div>
-              <button className="btn btn-orange" onClick={create} disabled={busy || !draft.attributes.diet || !(draft.quantity > 0)}>Continue to photos</button>
+              <button className="btn btn-orange" onClick={create} disabled={busy || !isKitchen || !draft.attributes.diet || !(draft.quantity > 0)}>Continue to photos</button>
+              {!isKitchen && <p className="small muted">Switch to a kitchen account in the <b>Acting as</b> menu to post this.</p>}
             </div>
           )}
         </div>

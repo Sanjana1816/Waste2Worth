@@ -59,7 +59,7 @@ def build_prompt(hint_category: str | None, manufacturer_color: str | None, note
     return f"""You are the intake inspector for a waste-reuse marketplace in India.
 Look at the photo(s) of an item someone wants to reuse, resell, recycle or donate.
 
-Categories and their attribute keys:
+Categories and their attribute keys (use "other" for anything that fits none of them, e.g. a water bottle):
 {_catalogue_brief()}
 
 Return ONLY a JSON object with these keys:
@@ -177,7 +177,8 @@ def mock(hint_category: str | None, filenames: list[str] | None = None) -> dict:
         for key, words in {"tiles": ("tile",), "food_cooked": ("food", "biryani", "rice", "meal"),
                            "clothing": ("shirt", "hoodie", "cloth", "jeans"), "electronics": ("laptop", "phone", "monitor"),
                            "furniture": ("chair", "table", "desk"), "wood": ("wood", "ply"), "metal": ("metal", "rebar", "steel"),
-                           "fabric": ("fabric", "cloth"), "packaging": ("box", "carton", "pallet")}.items():
+                           "fabric": ("fabric", "cloth"), "packaging": ("box", "carton", "pallet"),
+                           "other": ("bottle", "bag", "lamp", "toy", "book", "item")}.items():
             if any(w in blob for w in words):
                 cat = key
                 break

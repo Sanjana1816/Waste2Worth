@@ -12,9 +12,22 @@ export function PersonaProvider({ children }) {
     try { return Number(localStorage.getItem(KEY)) || null; } catch { return null; }
   });
   const [error, setError] = useState(null);
+  const [status, setStatus] = useState("loading");   // loading | ready | error
 
-  const reload = useCallback(() => api.orgs().then(setOrgs).catch((e) => setError(e)), []);
-  useEffect(() => { reload(); }, [reload]);
+  const reload = useCallback(() => api.orgs()
+    .then((list) => { setOrgs(list); setError(null); setStatus("ready"); })
+    .catch((e) => { setError(e); setStatus("error"); throw e; }), []);
+
+  // The account list is needed by almost every page, so keep retrying if the server is briefly
+  // unreachable (e.g. Railway restarting after a deploy) instead of silently giving up.
+  useEffect(() => {
+    let cancelled = false, timer;
+    const attempt = (delay) => reload().catch(() => {
+      if (!cancelled) timer = setTimeout(() => attempt(Math.min(delay * 2, 15000)), delay);
+    });
+    attempt(1500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [reload]);
 
   const choose = useCallback((next) => {
     setId(next);
@@ -22,7 +35,7 @@ export function PersonaProvider({ children }) {
   }, []);
 
   const persona = orgs.find((o) => o.id === id) || orgs.find((o) => o.role === "business") || null;
-  const value = useMemo(() => ({ orgs, persona, choose, error, reload }), [orgs, persona, choose, error, reload]);
+  const value = useMemo(() => ({ orgs, persona, choose, error, reload, status }), [orgs, persona, choose, error, reload, status]);
   return <PersonaCtx.Provider value={value}>{children}</PersonaCtx.Provider>;
 }
 

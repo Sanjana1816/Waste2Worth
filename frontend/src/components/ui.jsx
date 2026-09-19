@@ -34,6 +34,25 @@ export function Empty({ illo = "leaf", title, children }) {
   );
 }
 
+/** Shown when a page needs an account but none is selected (or none could be loaded). */
+export function NeedAccount({ status, children }) {
+  return (
+    <div className="empty">
+      <Illo name="leaf" />
+      {status === "error" ? (
+        <><p style={{ fontWeight: 700, color: "var(--ink)" }}>Can't reach the server right now.</p>
+          <div className="small">Retrying automatically. If this lasts more than a minute, the backend may be restarting.</div></>
+      ) : status === "loading" ? (
+        <p style={{ fontWeight: 700, color: "var(--ink)" }}>Connecting…</p>
+      ) : (
+        <><p style={{ fontWeight: 700, color: "var(--ink)" }}>{children || "Choose an account to continue."}</p>
+          <div className="small">Pick one from the <b>Acting as</b> menu at the top, or create a new one.</div>
+          <Link to="/join" className="btn btn-primary" style={{ marginTop: 14 }}>Create an account</Link></>
+      )}
+    </div>
+  );
+}
+
 export function ErrorBox({ error, onRetry }) {
   if (!error) return null;
   return (

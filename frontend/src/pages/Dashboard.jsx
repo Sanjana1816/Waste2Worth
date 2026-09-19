@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, errorText, fmtQty, inr, parseUtc, pretty } from "../api";
 import { ROLE_LABEL, usePersona, useToast } from "../app-state";
-import { Empty, ErrorBox, ListingImage, RouteChip, Spinner, Verified, useAsync } from "../components/ui";
+import { Empty, ErrorBox, ListingImage, NeedAccount, RouteChip, Spinner, Verified, useAsync } from "../components/ui";
 
 const STATUS_CHIP = {
   draft: ["chip-neutral", "Draft"], published: ["chip-ok", "Live"], sold_out: ["chip-resell", "Sold out"],
@@ -53,14 +53,14 @@ function Table({ rows, cols, empty }) {
 }
 
 export default function Dashboard() {
-  const { persona } = usePersona();
+  const { persona, status } = usePersona();
   const toast = useToast();
   const dash = useAsync(() => (persona ? api.dashboard(persona.id) : Promise.resolve(null)), [persona?.id]);
   const [tab, setTab] = useState("listings");
   const [filter, setFilter] = useState("all");
   const [busy, setBusy] = useState(false);
 
-  if (!persona) return <div className="container section"><div className="skeleton" style={{ height: 300 }} /></div>;
+  if (!persona) return <div className="container section"><NeedAccount status={status}>Choose an account to see its dashboard.</NeedAccount></div>;
   const d = dash.data;
   const seller = ["business", "brand", "individual"].includes(persona.role);
   const tabs = [

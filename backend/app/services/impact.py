@@ -21,4 +21,4 @@ def co2_saved_kg(spec: CategorySpec, data: dict, quantity: float | None = None) 
 def meals(spec: CategorySpec, unit: str, quantity: float) -> int:
     if not spec.perishable:
         return 0
-    return int(quantity if unit == "plates" else quantity / 0.3)
+    return int(quantity / 0.3 if unit == "kg" else quantity)   # plates, packets, boxes ≈ one meal each

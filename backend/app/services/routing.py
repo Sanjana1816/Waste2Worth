@@ -21,6 +21,8 @@ def recommend(spec: CategorySpec, data: dict) -> dict:
         return pick("resell", "Factory seconds with cosmetic flaws are sold below MRP to people who can't afford full price.")
     if spec.key == "electronics" and attrs.get("working_status") == "not_working":
         return pick("recycle", "Devices that don't work go to a certified e-waste recycler so metals are recovered safely.")
+    if spec.key == "other" and attrs.get("works_as_intended") is False:
+        return pick("recycle", "It doesn't work as intended, so recovering the material is the best use.")
     if spec.key == "metal":
         return pick("recycle", "Metal scrap has a reliable recycling value, and recyclers pay by weight.")
     if cond == "poor" and "recycle" in spec.routes:

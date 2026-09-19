@@ -133,7 +133,7 @@ def listings(now) -> list[dict]:
     ]
 
 
-PHOTO_DIR = Path(__file__).resolve().parent.parent / "demo_photos"
+PHOTO_DIR = Path(os.environ.get("DEMO_PHOTOS_DIR") or Path(__file__).resolve().parent.parent / "demo_photos")
 PHOTO_EXTS = (".jpg", ".jpeg", ".png", ".webp")
 
 

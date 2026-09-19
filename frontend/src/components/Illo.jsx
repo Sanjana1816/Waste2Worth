@@ -95,13 +95,13 @@ const ART = {
 
 export const CATEGORY_ILLO = {
   tiles: "tiles", wood: "plank", metal: "recycle", fabric: "hoodie", clothing: "hoodie",
-  electronics: "laptop", furniture: "chair", packaging: "box", food_cooked: "bowl",
+  electronics: "laptop", furniture: "chair", packaging: "box", food_cooked: "bowl", other: "box",
 };
 
 export const CATEGORY_TINT = {
   tiles: "var(--blue-soft)", wood: "var(--sun-soft)", metal: "var(--mint-soft)", fabric: "var(--violet-soft)",
   clothing: "var(--violet-soft)", electronics: "var(--mint-soft)", furniture: "var(--orange-soft)",
-  packaging: "var(--sun-soft)", food_cooked: "var(--orange-soft)",
+  packaging: "var(--sun-soft)", food_cooked: "var(--orange-soft)", other: "var(--pink-soft)",
 };
 
 export default function Illo({ name, className, title }) {

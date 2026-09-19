@@ -23,7 +23,7 @@ WHITE_TARGET = 240.0
 LUMA = np.array([0.299, 0.587, 0.114], dtype=np.float32)
 
 ISSUE_TEXT = {
-    "too_small": "The photo is too small. Retake it closer, or at full camera resolution.",
+    "too_small": "The image is tiny (under 200 px). Use a larger photo or the original from your camera.",
     "blurry": "The photo is blurry. Hold steady, tap to focus and retake.",
     "too_dark": "The photo is too dark. Move to daylight or near a window.",
     "too_bright": "The photo is washed out. Avoid direct sun and turn the flash off.",

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api, errorText, fmtQty, inr, parseUtc } from "../api";
 import { usePersona, useToast } from "../app-state";
 import Receipt from "../components/Receipt";
-import { Field, Spinner } from "../components/ui";
+import { Field, NeedAccount, Spinner } from "../components/ui";
 
 const MATCH_FIELDS = {
   brand: ["Brand", "Terrano Tiles"], model_sku: ["Design code / SKU", "TR-6060-MW"],
@@ -44,7 +44,7 @@ function ReservationTimer({ until }) {
 
 export default function Pool() {
   const [params] = useSearchParams();
-  const { persona } = usePersona();
+  const { persona, status } = usePersona();
   const toast = useToast();
   const listingId = params.get("listing");
   const [mode, setMode] = useState(listingId ? "listing" : "need");
@@ -96,6 +96,7 @@ export default function Pool() {
             <Field label={`Quantity (${mode === "listing" && ref ? ref.unit : "pieces"})`} required><input className="input" type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} /></Field>
             <Field label="Within (km)"><input className="input" type="number" min="1" max="50" value={radius} onChange={(e) => setRadius(e.target.value)} /></Field>
           </div>
+          {!persona && <NeedAccount status={status}>Choose an account to buy as.</NeedAccount>}
           {persona && !["buyer", "business", "individual"].includes(persona.role) && <div className="alert alert-warn small">You're acting as a {persona.role}. Buyers usually do this, but you can still try it.</div>}
           <button className="btn btn-primary" onClick={getQuote} disabled={busy || !persona || !(qty > 0)}>{busy && !quote ? <Spinner /> : "Find matching stock"}</button>
           {err && <div className="alert alert-bad">{err}</div>}

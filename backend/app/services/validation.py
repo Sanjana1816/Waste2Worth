@@ -163,6 +163,11 @@ def validate_listing(spec: CategorySpec, data: dict, now: datetime | None = None
     if route == "donate" and data.get("asking_price_per_unit"):
         err("asking_price_per_unit", "donations are free, so remove the price")
 
+    # No reference price for this category/unit (e.g. "other", or tiles sold by the box of an odd size):
+    # the seller's price-when-new is needed to keep resale below new.
+    if route == "resell" and "unit" not in {e["field"] for e in errors}             and valuation.new_price_per_unit(spec, {**data, "attributes": clean}) is None:
+        err("new_price_per_unit", "tell buyers what it cost new, so we can check the second-hand price is fair")
+
     # --- price ceiling: second-hand must be cheaper than new (recycling sells at scrap rates instead) ---
     price = data.get("asking_price_per_unit")
     if price and route == "resell" and not any(e["field"] in ("unit", "quantity") for e in errors):

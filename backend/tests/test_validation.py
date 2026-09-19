@@ -78,3 +78,29 @@ def test_food_time_window():
     stale = {**food, "attributes": {**food["attributes"], "cooked_at": (now - timedelta(hours=5)).isoformat()}}
     assert "attributes.cooked_at" in fields("food_cooked", stale)
     assert "asking_price_per_unit" in fields("food_cooked", {**food, "asking_price_per_unit": 20})
+
+
+def test_other_category_needs_price_when_new_to_resell():
+    bottle = dict(title="Steel water bottle", category="other", unit="pieces", quantity=1, condition="like_new",
+                  route="resell", reason_code="unused_gift", reason_detail="Got two as gifts, this one is unused.",
+                  asking_price_per_unit=300,
+                  attributes=dict(item_name="Steel water bottle", material="metal", works_as_intended=True, size="1 litre"))
+    assert "new_price_per_unit" in fields("other", bottle)
+    assert fields("other", {**bottle, "new_price_per_unit": 600}) == set()
+    assert "asking_price_per_unit" in fields("other", {**bottle, "new_price_per_unit": 350})  # cap: 75% of 350
+    assert fields("other", {**bottle, "route": "donate", "asking_price_per_unit": None}) == set()
+
+
+def test_units_without_reference_price_need_price_when_new():
+    sets = dict(title="School uniform sets", category="clothing", unit="sets", quantity=5, condition="good",
+                route="resell", reason_code="outgrown", reason_detail="Kids moved schools, uniforms unused.",
+                brand="Local tailor", asking_price_per_unit=200,
+                attributes=dict(garment_type="other", sizes="8-10 years", gender="kids", washed_clean=True))
+    assert "new_price_per_unit" in fields("clothing", sets)
+    assert fields("clothing", {**sets, "new_price_per_unit": 800}) == set()
+    assert fields("clothing", {**sets, "unit": "pieces"}) == set()   # pieces has a reference price
+
+
+def test_food_packets_count_as_meals():
+    from app.services.impact import meals
+    assert meals(get_spec("food_cooked"), "packets", 30) == 30 and meals(get_spec("food_cooked"), "kg", 3) == 10

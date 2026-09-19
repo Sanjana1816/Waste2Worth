@@ -13,6 +13,7 @@ os.environ["VAKH_TOKENS_JSON"] = ""
 os.environ["VAKH_POST_TOOL"] = ""
 os.environ["VAKH_FOOD_FORM_ID"] = ""
 os.environ["GROQ_API_KEY"] = ""
+os.environ["DEMO_PHOTOS_DIR"] = os.path.join(os.environ["UPLOAD_DIR"], "no-demo-photos")  # tests use synthetic photos only
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
