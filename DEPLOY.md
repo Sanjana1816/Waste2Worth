@@ -91,6 +91,16 @@ Check that `backend/.env` and `frontend/.env` are **not** in the commit (`git st
 
 `VITE_` variables are baked in at build time, so after changing `VITE_API_URL`, redeploy on Vercel.
 
+### Or: Netlify instead of Vercel
+1. https://app.netlify.com → **Add new site → Import an existing project** → GitHub → pick the repo.
+2. **Base directory:** `frontend`. The build command (`npm run build`) and publish directory (`dist`) come from
+   `frontend/netlify.toml`, which also handles page refreshes.
+3. **Environment variables:** `VITE_API_URL` = your Railway URL (no trailing slash). Then **Deploy**.
+4. On Railway, allow the Netlify site: `CORS_ORIGIN_REGEX=https://.*\.netlify\.app` (or put the exact URL in
+   `CORS_ORIGINS`), and set `PUBLIC_APP_URL` to your Netlify URL. Redeploy the backend.
+
+After changing `VITE_API_URL` on Netlify, use **Deploys → Trigger deploy** so it's rebuilt.
+
 ---
 
 ## 6. Load the demo data into production

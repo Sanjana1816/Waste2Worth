@@ -19,3 +19,4 @@ frontend/dist/
 .vscode/
 .DS_Store
 backend/vakh_tools.json
+backend/demo_photos/

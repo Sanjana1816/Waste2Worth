@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Single-page app: send every route to index.html so refreshes on /listing/3 etc. work
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
