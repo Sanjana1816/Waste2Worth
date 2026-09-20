@@ -8,28 +8,58 @@ import Receipt from "../components/Receipt";
 import DefectMap, { DefectSummary } from "../components/DefectMap";
 
 function Gallery({ listing }) {
+  const toast = useToast();
   const [i, setI] = useState(0);
   const [showDamage, setShowDamage] = useState(true);
+  const [scans, setScans] = useState({});          // scans run on this page, before a reload
+  const [scanning, setScanning] = useState(false);
   const imgs = listing.images || [];
   const cur = imgs[i];
-  const damage = showDamage && cur?.defect_map?.regions?.length ? cur.defect_map : null;
+  const map = cur && (scans[cur.id] || cur.defect_map);
+  const damage = showDamage && map?.regions?.length ? map : null;
+
+  const scan = async () => {
+    setScanning(true);
+    try {
+      const result = await api.inspectImage(listing.id, cur.id);
+      setScans((s) => ({ ...s, [cur.id]: result }));
+      setShowDamage(true);
+      if (!result.regions.length) toast(result.warnings?.[0] || "The AI found nothing wrong in this photo.");
+    } catch (e) { toast(errorText(e), "bad"); } finally { setScanning(false); }
+  };
+
   return (
     <div>
       {damage ? <DefectMap image={cur} map={damage} /> : (
       <div className="gallery-main" style={{ background: CATEGORY_TINT[listing.category] }}>
         {cur ? <img src={imgUrl(cur.url)} alt={pretty(cur.shot_type)} /> : <Illo name={CATEGORY_ILLO[listing.category]} className="illo" />}
       </div>)}
-      {cur?.defect_map?.regions?.length > 0 && (
+      {cur && (
         <div className="row between" style={{ marginTop: 10 }}>
-          <span className="row" style={{ gap: 8 }}><span className="chip chip-neutral">AI damage scan</span><DefectSummary map={cur.defect_map} /></span>
-          <button className="btn btn-sm" onClick={() => setShowDamage((v) => !v)}>{showDamage ? "Hide marks" : "Show marks"}</button>
+          {map?.regions?.length > 0 ? (
+            <>
+              <span className="row" style={{ gap: 8 }}><span className="chip chip-neutral">AI damage scan</span><DefectSummary map={map} /></span>
+              <span className="row" style={{ gap: 8 }}>
+                <button className="btn btn-sm" onClick={() => setShowDamage((v) => !v)}>{showDamage ? "Hide marks" : "Show marks"}</button>
+                <button className="btn btn-sm" onClick={scan} disabled={scanning}>{scanning ? <Spinner /> : "Rescan"}</button>
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="small muted">Not sure about its condition? Let the AI mark the damage on this photo.</span>
+              <button className="btn btn-sm btn-dark" onClick={scan} disabled={scanning}>
+                {scanning ? <><Spinner /> Scanning…</> : "Scan for damage"}
+              </button>
+            </>
+          )}
         </div>
       )}
+      {map?.summary && !damage && <p className="small" style={{ marginTop: 8 }}>{map.summary}</p>}
       {imgs.length > 1 && (
         <div className="thumbs" role="group" aria-label="Photos">
           {imgs.map((img, k) => (
             <button key={img.id} className="thumb" aria-pressed={k === i} onClick={() => setI(k)}>
-              <img src={imgUrl(img.url)} alt="" /><span>{pretty(img.shot_type)}{img.defect_map?.regions?.length ? " · scanned" : ""}</span>
+              <img src={imgUrl(img.url)} alt="" /><span>{pretty(img.shot_type)}{(scans[img.id] || img.defect_map)?.regions?.length ? " · scanned" : ""}</span>
             </button>
           ))}
         </div>
