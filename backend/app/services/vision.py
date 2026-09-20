@@ -224,3 +224,81 @@ async def analyze(images: list[bytes], hint_category: str | None = None, manufac
             if busy else
             f"The {provider} AI was unavailable ({type(e).__name__}), so this is a basic guess. Check the details.")
         return result
+
+
+# ---------- defect heatmap: where the damage is, not just that it exists ----------
+
+SEVERITIES = ("high", "medium", "low", "ok")
+
+DEFECT_PROMPT = """You are inspecting one photo of a second-hand {label} for a resale marketplace.
+Mark every visible defect AND the parts that are clearly sound, as boxes on the image.
+
+Return ONLY JSON: {{"regions": [{{"label": "torn mesh", "severity": "high|medium|low|ok",
+"note": "one short phrase a buyer needs", "x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0}}],
+"summary": "one sentence", "condition": "new|like_new|good|fair|poor"}}
+
+x, y, w, h are fractions of the image (0-1): x,y is the top-left corner of the box.
+Severity: "high" = affects use or safety (torn, cracked, broken, missing, rusted through),
+"medium" = clear cosmetic damage (scratches, stains, dents, fading),
+"low" = minor wear, "ok" = a part that is clearly intact and worth pointing out (e.g. "frame intact").
+Mark at most 6 regions, biggest issues first. If nothing is visibly wrong, return the "ok" regions only."""
+
+
+class DefectRegion(BaseModel):
+    label: str
+    severity: Literal["high", "medium", "low", "ok"] = "medium"
+    note: str = ""
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    w: float = Field(gt=0, le=1)
+    h: float = Field(gt=0, le=1)
+
+
+class DefectMap(BaseModel):
+    regions: list[DefectRegion] = []
+    summary: str = ""
+    condition: str | None = None
+    provider: str = "mock"
+    warnings: list[str] = []
+
+
+def clean_defects(raw: dict, provider: str) -> DefectMap:
+    regions = []
+    for r in (raw or {}).get("regions") or []:
+        if not isinstance(r, dict) or not r.get("label"):
+            continue
+        try:
+            x, y = float(r.get("x", 0)), float(r.get("y", 0))
+            w, h = float(r.get("w", 0)), float(r.get("h", 0))
+        except (TypeError, ValueError):
+            continue
+        # clamp to the image, drop anything with no area
+        x, y = min(max(x, 0.0), 0.98), min(max(y, 0.0), 0.98)
+        w, h = min(max(w, 0.02), 1 - x), min(max(h, 0.02), 1 - y)
+        sev = str(r.get("severity", "medium")).lower()
+        regions.append({"label": str(r["label"])[:60], "severity": sev if sev in SEVERITIES else "medium",
+                        "note": str(r.get("note", ""))[:120], "x": round(x, 4), "y": round(y, 4),
+                        "w": round(w, 4), "h": round(h, 4)})
+    order = {"high": 0, "medium": 1, "low": 2, "ok": 3}
+    regions.sort(key=lambda r: order[r["severity"]])
+    cond = raw.get("condition") if raw.get("condition") in CONDITIONS else None
+    return DefectMap(regions=regions[:6], summary=str(raw.get("summary", ""))[:200],
+                     condition=cond, provider=provider)
+
+
+async def inspect(image: bytes, label: str = "item") -> DefectMap:
+    """Ask the model where the damage is. Falls back to an empty map rather than failing the page."""
+    provider = settings.vision_provider.lower()
+    prompt = DEFECT_PROMPT.format(label=label)
+    if provider == "mock":
+        return DefectMap(summary="Damage scan needs the AI provider; set VISION_PROVIDER.", provider="mock")
+    call = {"groq": _groq, "gemini": _gemini, "ollama": _ollama}.get(provider)
+    try:
+        raw = await call(prompt, [_prep(image)])
+        return clean_defects(raw, provider)
+    except (httpx.HTTPError, RuntimeError, KeyError, IndexError, ValueError, ValidationError) as e:
+        log.warning("defect scan failed: %s", e)
+        busy = isinstance(e, httpx.HTTPStatusError) and e.response.status_code == 429
+        return DefectMap(provider="mock", warnings=[
+            "The AI is busy right now (free-tier limit). Try the damage scan again in a minute."
+            if busy else f"The damage scan couldn't run ({type(e).__name__}). Try again."])

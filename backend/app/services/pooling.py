@@ -224,6 +224,7 @@ def confirm(session: Session, pool: Pool) -> Pool:
             li.status = ListingStatus.sold_out
         session.add(li)
     pool.status = "confirmed"
+    pool.confirmed_at = utcnow()
     session.add(pool)
     session.commit()
     session.refresh(pool)

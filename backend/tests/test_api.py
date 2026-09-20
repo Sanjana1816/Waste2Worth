@@ -150,3 +150,58 @@ def test_signup_and_seller_dashboard(client):
     assert any(s["title"] == "Mesh-back office chairs" and s["status"] == "confirmed" for s in sales)
     ravi = org_id(client, "Ravi Renovations")
     assert client.get(f"/api/orgs/{ravi}/dashboard").json()["purchases"]
+
+
+def test_order_tracking_route_and_progress(client):
+    buyer = org_id(client, "Ravi Renovations")
+    pool = client.post("/api/pools", json=dict(buyer_id=buyer, listing_id=1, quantity=200)).json()
+    client.post(f"/api/pools/{pool['id']}/confirm")
+
+    t = client.get(f"/api/pools/{pool['id']}/tracking").json()
+    assert t["stage"] == "confirmed" and t["total_stops"] == 3 and t["collected"] == 0
+    assert [s["stop_no"] for s in t["stops"]] == [1, 2, 3]
+    assert t["stops"][0]["distance_km"] >= t["stops"][-1]["distance_km"]   # furthest first, ends near the buyer
+    assert t["route_km"] > 0 and t["eta_minutes"] > 0
+    assert t["buyer"]["lat"] and all(s["lat"] for s in t["stops"])
+
+    first = t["stops"][0]["listing_id"]
+    t = client.post(f"/api/pools/{pool['id']}/stops/{first}/collected").json()
+    assert t["collected"] == 1 and t["stage"] == "out_for_pickup" and t["progress_pct"] == 33
+    assert next(s for s in t["stops"] if s["listing_id"] == first)["picked_up_at"]
+
+    t = client.post(f"/api/pools/{pool['id']}/delivered").json()
+    assert t["status"] == "delivered" and t["collected"] == 3 and t["progress_pct"] == 100
+    assert t["timeline"][-1]["done"]
+    assert client.post(f"/api/pools/{pool['id']}/delivered").status_code == 409   # already done
+
+
+def test_damage_scan_marks_regions_on_a_photo(client, monkeypatch):
+    from app.services import vision
+
+    async def fake_inspect(image, label="item"):
+        assert isinstance(image, bytes) and label
+        return vision.clean_defects({
+            "summary": "Mesh seat is torn; frame and wheels look sound.",
+            "condition": "fair",
+            "regions": [
+                {"label": "Torn mesh", "severity": "high", "note": "seat back, 10 cm tear", "x": .3, "y": .2, "w": .3, "h": .25},
+                {"label": "Surface scratches", "severity": "medium", "x": .1, "y": .6, "w": .2, "h": .1},
+                {"label": "Frame intact", "severity": "ok", "x": .05, "y": .05, "w": 2, "h": .2},   # oversized: clamped
+            ]}, "groq")
+
+    monkeypatch.setattr(vision, "inspect", fake_inspect)
+    chairs = client.get("/api/listings?q=chairs").json()[0]
+    image_id = chairs["images"][0]["id"]
+
+    r = client.post(f"/api/listings/{chairs['id']}/images/{image_id}/inspect")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert [x["severity"] for x in body["regions"]] == ["high", "medium", "ok"]   # worst first
+    assert body["regions"][2]["x"] + body["regions"][2]["w"] <= 1                 # kept inside the photo
+    assert body["condition"] == "fair"
+
+    # buyers see it on the listing afterwards
+    again = client.get(f"/api/listings/{chairs['id']}").json()
+    saved = next(i for i in again["images"] if i["id"] == image_id)["defect_map"]
+    assert saved["regions"][0]["label"] == "Torn mesh" and "torn" in saved["summary"].lower()
+    assert client.post(f"/api/listings/{chairs['id']}/images/999999/inspect").status_code == 404

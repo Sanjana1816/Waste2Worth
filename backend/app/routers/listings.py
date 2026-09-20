@@ -10,7 +10,7 @@ from app.config import settings
 from app.db import get_session
 from app.models import Listing, ListingImage, ListingStatus, Org, OrgRole
 from app.schemas import ListingCreate, ListingUpdate
-from app.services import dispatch, imaging, listings as svc, storage
+from app.services import dispatch, imaging, listings as svc, storage, vision
 from app.services.geo import haversine_km
 from app.services.validation import ValidationFailed
 
@@ -55,8 +55,10 @@ def _out(session: Session, li: Listing, lat: float | None = None, lng: float | N
     d = li.model_dump()
     d["available"] = max(0.0, li.quantity_available - li.quantity_reserved)
     d["seller"] = {"id": seller.id, "name": seller.name, "verified": seller.verified, "badges": seller.badges}
+    maps = (li.ai_summary or {}).get("defect_map") or {}
     d["images"] = [{"id": i.id, "shot_type": i.shot_type, "url": storage.url(i.path),
-                    "quality_ok": i.quality_ok, "color_hex": i.color_hex} for i in images]
+                    "quality_ok": i.quality_ok, "color_hex": i.color_hex,
+                    "defect_map": maps.get(str(i.id))} for i in images]
     if lat is not None and lng is not None:
         d["distance_km"] = round(haversine_km(lat, lng, li.lat, li.lng), 1)
     return d
@@ -141,6 +143,29 @@ async def upload_image(listing_id: int, shot_type: str = Form(...), file: Upload
         "image": {**row.model_dump(exclude={"path"}), "problems": imaging.describe_issues(row.issues)},
         "readiness": svc.readiness(session, spec, li),
     }
+
+
+@router.post("/listings/{listing_id}/images/{image_id}/inspect")
+async def inspect_image(listing_id: int, image_id: int, session: Session = Depends(get_session)):
+    """Damage scan: the AI marks where the defects are on this photo, so buyers don't have to hunt."""
+    li, spec = _get(session, listing_id)
+    img = session.get(ListingImage, image_id)
+    if not img or img.listing_id != listing_id:
+        raise HTTPException(404, "photo not found on this listing")
+    try:
+        data = storage.read(img.path)
+    except storage.StorageError as e:
+        raise HTTPException(502, str(e))
+    result = await vision.inspect(data, spec.label.lower())
+
+    summary = dict(li.ai_summary or {})
+    maps = dict(summary.get("defect_map") or {})
+    maps[str(image_id)] = result.model_dump()
+    summary["defect_map"] = maps
+    li.ai_summary = summary
+    session.add(li)
+    session.commit()
+    return {"image_id": image_id, "shot_type": img.shot_type, **result.model_dump()}
 
 
 @router.get("/listings/{listing_id}/readiness")

@@ -42,6 +42,15 @@ def save(key: str, data: bytes, content_type: str = "image/jpeg") -> str:
     return key
 
 
+def read(key: str) -> bytes:
+    if settings.storage_backend == "supabase":
+        r = httpx.get(url(key), timeout=30)
+        if r.status_code >= 400:
+            raise StorageError(f"couldn't read {key} from Supabase ({r.status_code})")
+        return r.content
+    return (Path(settings.upload_dir) / key).read_bytes()
+
+
 def url(key: str) -> str:
     if settings.storage_backend == "supabase":
         return f"{settings.supabase_url}/storage/v1/object/public/{settings.supabase_bucket}/{key}"

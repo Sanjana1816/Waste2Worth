@@ -126,9 +126,12 @@ class Pool(SQLModel, table=True):
     new_price_total: float | None
     savings_pct: float | None
     shade_match_pct: float | None
-    status: str = "reserved"   # reserved | confirmed | cancelled | expired
+    # reserved -> confirmed -> out_for_pickup -> delivered (or cancelled / expired)
+    status: str = "reserved"
     reserved_until: datetime
     created_at: datetime = Field(default_factory=utcnow)
+    confirmed_at: datetime | None = None
+    delivered_at: datetime | None = None
 
 
 class PoolItem(SQLModel, table=True):
@@ -140,6 +143,7 @@ class PoolItem(SQLModel, table=True):
     line_total: float
     distance_km: float
     delta_e: float | None = None
+    picked_up_at: datetime | None = None    # this seller's lot collected by the driver
 
 
 class Claim(SQLModel, table=True):
