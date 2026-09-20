@@ -142,12 +142,16 @@ function ClaimPanel({ listing, onDone }) {
         <div className="card-soft">
           <p className="eyebrow" style={{ marginBottom: 8 }}>Who we alerted</p>
           <div className="stack" style={{ gap: 8 }}>
-            {log.data.map((d) => (
-              <div key={d.id} className="small row" style={{ alignItems: "start", flexWrap: "nowrap" }}>
-                <span className={`chip ${d.status === "sent" ? "chip-ok" : d.status === "failed" ? "chip-bad" : "chip-neutral"}`}>{d.channel === "vakh" ? "Vakh" : "Call"} · {d.status}</span>
-                <span className="muted" style={{ flex: 1 }}>{d.detail}</span>
-              </div>
-            ))}
+            {log.data.map((d) => {
+              const script = d.channel === "voice_call" ? (d.detail || "").replace(/\s*\[not actually called:[^\]]*\]\s*$/, "").trim() : "";
+              return (
+                <div key={d.id} className="small row" style={{ alignItems: "start", flexWrap: "nowrap" }}>
+                  <span className={`chip ${d.status === "sent" ? "chip-ok" : d.status === "failed" ? "chip-bad" : "chip-neutral"}`}>{d.channel === "vakh" ? "Vakh" : "Call"} · {d.status}</span>
+                  <span className="muted" style={{ flex: 1 }}>{d.detail}</span>
+                  {script.length > 20 && <SpeakButton text={script} label="Hear the call" />}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -113,7 +113,9 @@ export default function Food() {
             <Recorder useServer={serverVoice} onAudio={onAudio} onText={onSpoken} onProblem={setErr} disabled={busy} />
             <div><b style={{ fontFamily: "var(--display)", fontSize: 22 }}>Tap and speak</b>
               <p className="small muted">Hindi, English or Hinglish. E.g. “{SAMPLE}”</p>
-              {!serverVoice && <p className="tiny muted">Using your browser's speech recognition.</p>}</div>
+              <p className="tiny muted">{serverVoice
+                ? "🎙 Speech-to-text by ElevenLabs (Scribe), on our server."
+                : "Using your browser's speech recognition (no ElevenLabs key set)."}</p></div>
           </div>
           <div className="row" style={{ flexWrap: "nowrap" }}>
             <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="…or type it here" aria-label="Describe the food" />

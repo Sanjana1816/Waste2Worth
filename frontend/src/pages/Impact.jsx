@@ -3,6 +3,38 @@ import { api, errorText, fmtQty, inr } from "../api";
 import { usePersona } from "../app-state";
 import { ErrorBox, Field, useAsync } from "../components/ui";
 
+const INTEGRATIONS = [
+  ["Vision AI", (s) => (s.groq ? `Groq · ${s.vision_provider}` : s.gemini ? "Gemini" : "offline guess"), (s) => s.groq || s.gemini],
+  ["Voice", (s) => (s.elevenlabs ? (s.elevenlabs_calls ? "ElevenLabs + phone calls" : "ElevenLabs speech") : "browser voice"), (s) => s.elevenlabs],
+  ["Community board", (s) => (s.vakh_connected ? `Vakh · ${s.vakh_post_tool || "connected"}` : "not connected"), (s) => s.vakh_connected],
+  ["Database & photos", (s) => (s.storage === "supabase" ? "Supabase" : "local disk"), (s) => s.database === "connected"],
+];
+
+function LiveIntegrations() {
+  const st = useAsync(() => api.integrations(), []);
+  const s = st.data;
+  if (!s) return null;
+  return (
+    <section className="no-print" style={{ marginTop: 48 }}>
+      <h2 style={{ fontSize: 24 }}>What's actually running</h2>
+      <p className="small muted" style={{ marginTop: 6, marginBottom: 14 }}>
+        Read live from the backend, so it shows the services this deployment is really calling.
+      </p>
+      <div className="grid grid-4">
+        {INTEGRATIONS.map(([label, value, ok]) => (
+          <div key={label} className="card card-pad">
+            <div className="tiny muted">{label}</div>
+            <div className="row" style={{ gap: 8, marginTop: 6 }}>
+              <span className={`chip ${ok(s) ? "chip-ok" : "chip-warn"}`}>{ok(s) ? "live" : "fallback"}</span>
+              <b>{value(s)}</b>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function Impact() {
   const { orgs, persona } = usePersona();
   const summary = useAsync(() => api.impact(), []);
@@ -67,6 +99,8 @@ export default function Impact() {
           </div>
         </div>
       )}
+
+      <LiveIntegrations />
     </div>
   );
 }
