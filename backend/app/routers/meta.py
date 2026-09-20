@@ -99,7 +99,9 @@ def certificate(org_id: int, session: Session = Depends(get_session)):
 
 @router.get("/integrations/status")
 def integrations():
+    from app import db as _db
     return {
+        "database": "connected" if _db.db_ready else "unreachable",
         "vision_provider": settings.vision_provider,
         "groq": bool(settings.groq_api_key),
         "gemini": bool(settings.gemini_api_key),

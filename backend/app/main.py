@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -14,7 +15,10 @@ from app.services.validation import ValidationFailed
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    init_db()
+    # Keep serving even if the database is briefly unreachable; it is retried on the next request,
+    # so a blip in the managed database never takes the whole deployment down.
+    if not init_db():
+        logging.getLogger("app").error("Starting without a database connection; will retry on requests.")
     yield
 
 
