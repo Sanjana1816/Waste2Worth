@@ -119,7 +119,6 @@ function ClaimPanel({ listing, onDone }) {
   const toast = useToast();
   const [qty, setQty] = useState(listing.available);
   const [busy, setBusy] = useState(false);
-  const log = useAsync(() => api.dispatchLog(listing.id), [listing.id]);
   const canClaim = persona?.role === "ngo" && persona.verified;
   const claim = async () => {
     setBusy(true);
@@ -138,23 +137,32 @@ function ClaimPanel({ listing, onDone }) {
       ) : (
         <div className="alert alert-warn">Only verified NGOs can claim donations. Switch to an NGO account, e.g. Full Plate Foundation, to try it.</div>
       )}
-      {log.data?.length > 0 && (
-        <div className="card-soft">
-          <p className="eyebrow" style={{ marginBottom: 8 }}>Who we alerted</p>
-          <div className="stack" style={{ gap: 8 }}>
-            {log.data.map((d) => {
-              const script = d.channel === "voice_call" ? (d.detail || "").replace(/\s*\[not actually called:[^\]]*\]\s*$/, "").trim() : "";
-              return (
-                <div key={d.id} className="small row" style={{ alignItems: "start", flexWrap: "nowrap" }}>
-                  <span className={`chip ${d.status === "sent" ? "chip-ok" : d.status === "failed" ? "chip-bad" : "chip-neutral"}`}>{d.channel === "vakh" ? "Vakh" : "Call"} · {d.status}</span>
-                  <span className="muted" style={{ flex: 1 }}>{d.detail}</span>
-                  {script.length > 20 && <SpeakButton text={script} label="Hear the call" />}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+    </div>
+  );
+}
+
+/** The calls and the Vakh post that went out the moment this food was published. */
+function AlertLog({ listing }) {
+  const log = useAsync(() => api.dispatchLog(listing.id), [listing.id]);
+  if (!log.data?.length) return null;
+  return (
+    <div className="card card-pad stack">
+      <div>
+        <h3 style={{ fontSize: 20 }}>Who we alerted</h3>
+        <p className="small muted">Sent automatically to the nearest verified NGOs the moment this was published.</p>
+      </div>
+      <div className="stack" style={{ gap: 8 }}>
+        {log.data.map((d) => {
+          const script = d.channel === "voice_call" ? (d.detail || "").replace(/\s*\[not actually called:[^\]]*\]\s*$/, "").trim() : "";
+          return (
+            <div key={d.id} className="small row" style={{ alignItems: "start", flexWrap: "nowrap" }}>
+              <span className={`chip ${d.status === "sent" ? "chip-ok" : d.status === "failed" ? "chip-bad" : "chip-neutral"}`}>{d.channel === "vakh" ? "Vakh" : "Call"} · {d.status}</span>
+              <span className="muted" style={{ flex: 1 }}>{d.detail}</span>
+              {script.length > 20 && <SpeakButton text={script} label="Hear the call" />}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -212,6 +220,7 @@ export default function ListingDetail() {
           </div>
 
           {li.status === "published" && (li.route === "donate" ? <ClaimPanel listing={li} onDone={listing.reload} /> : ["resell", "recycle"].includes(li.route) ? <OrderPanel listing={li} /> : null)}
+          {li.route === "donate" && <AlertLog listing={li} />}
           {li.route === "resell" && spec.data?.poolable && li.status === "published" && (
             <Link to={`/pool?listing=${li.id}`} className="card card-pad row between" style={{ textDecoration: "none", background: "var(--pink-soft)" }}>
               <span><b>Need more than {fmtQty(li.available)}?</b><br /><span className="small muted">Combine identical stock from other sellers into one pooled lot.</span></span>
