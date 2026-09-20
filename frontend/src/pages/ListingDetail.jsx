@@ -5,21 +5,31 @@ import { usePersona, useToast } from "../app-state";
 import Illo, { CATEGORY_ILLO, CATEGORY_TINT } from "../components/Illo";
 import { Countdown, ErrorBox, RouteChip, SpeakButton, Spinner, Verified, useAsync } from "../components/ui";
 import Receipt from "../components/Receipt";
+import DefectMap, { DefectSummary } from "../components/DefectMap";
 
 function Gallery({ listing }) {
   const [i, setI] = useState(0);
+  const [showDamage, setShowDamage] = useState(true);
   const imgs = listing.images || [];
   const cur = imgs[i];
+  const damage = showDamage && cur?.defect_map?.regions?.length ? cur.defect_map : null;
   return (
     <div>
+      {damage ? <DefectMap image={cur} map={damage} /> : (
       <div className="gallery-main" style={{ background: CATEGORY_TINT[listing.category] }}>
         {cur ? <img src={imgUrl(cur.url)} alt={pretty(cur.shot_type)} /> : <Illo name={CATEGORY_ILLO[listing.category]} className="illo" />}
-      </div>
+      </div>)}
+      {cur?.defect_map?.regions?.length > 0 && (
+        <div className="row between" style={{ marginTop: 10 }}>
+          <span className="row" style={{ gap: 8 }}><span className="chip chip-neutral">AI damage scan</span><DefectSummary map={cur.defect_map} /></span>
+          <button className="btn btn-sm" onClick={() => setShowDamage((v) => !v)}>{showDamage ? "Hide marks" : "Show marks"}</button>
+        </div>
+      )}
       {imgs.length > 1 && (
         <div className="thumbs" role="group" aria-label="Photos">
           {imgs.map((img, k) => (
             <button key={img.id} className="thumb" aria-pressed={k === i} onClick={() => setI(k)}>
-              <img src={imgUrl(img.url)} alt="" /><span>{pretty(img.shot_type)}</span>
+              <img src={imgUrl(img.url)} alt="" /><span>{pretty(img.shot_type)}{img.defect_map?.regions?.length ? " · scanned" : ""}</span>
             </button>
           ))}
         </div>
@@ -64,7 +74,12 @@ function OrderPanel({ listing }) {
         <div className="row"><button className="btn btn-primary" onClick={confirm} disabled={busy}>Confirm order · {inr(pool.total)}</button>
           <button className="btn" onClick={() => run(async () => { setPool(await api.cancelPool(pool.id)); setQuote(null); })}>Cancel</button></div>
       )}
-      {pool?.status === "confirmed" && <div className="alert alert-ok">Order #{pool.id} confirmed · {inr(pool.total)}. Pickup will be arranged with the seller.</div>}
+      {pool?.status === "confirmed" && (
+        <div className="alert alert-ok row between">
+          <span>Order #{pool.id} confirmed · {inr(pool.total)}.</span>
+          <Link to={`/track/${pool.id}`} className="btn btn-sm btn-primary">Track pickup</Link>
+        </div>
+      )}
     </div>
   );
 }

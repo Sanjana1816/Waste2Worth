@@ -8,7 +8,8 @@ const STATUS_CHIP = {
   draft: ["chip-neutral", "Draft"], published: ["chip-ok", "Live"], sold_out: ["chip-resell", "Sold out"],
   claimed: ["chip-donate", "Claimed"], expired: ["chip-bad", "Expired"], withdrawn: ["chip-neutral", "Withdrawn"],
 };
-const ORDER_CHIP = { reserved: "chip-warn", confirmed: "chip-ok", cancelled: "chip-neutral", expired: "chip-neutral", claimed: "chip-ok", picked_up: "chip-ok" };
+const ORDER_CHIP = { reserved: "chip-warn", confirmed: "chip-ok", out_for_pickup: "chip-warn", delivered: "chip-ok",
+  cancelled: "chip-neutral", expired: "chip-neutral", claimed: "chip-ok", picked_up: "chip-ok" };
 const FILTERS = [["all", "All"], ["draft", "Drafts"], ["published", "Live"], ["closed", "Closed"]];
 const date = (s) => parseUtc(s)?.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
@@ -147,7 +148,10 @@ export default function Dashboard() {
           {current === "purchases" && <Table rows={d.purchases} empty="You haven't bought anything yet." cols={[
             ["Order", (r) => `#${r.pool_id} · ${r.title}${r.sellers > 1 ? ` + ${r.sellers - 1} more` : ""}`],
             ["Quantity", (r) => `${fmtQty(r.quantity)} ${r.unit}`], ["Total", (r) => inr(r.total)],
-            ["Status", (r) => <span className={`chip ${ORDER_CHIP[r.status]}`}>{pretty(r.status)}</span>], ["When", (r) => date(r.created_at)]]} />}
+            ["Status", (r) => <span className={`chip ${ORDER_CHIP[r.status]}`}>{pretty(r.status)}</span>],
+            ["When", (r) => date(r.created_at)],
+            ["", (r) => (["confirmed", "out_for_pickup", "delivered"].includes(r.status)
+              ? <Link to={`/track/${r.pool_id}`} className="linkish">Track</Link> : "")]]} />}
           {current === "claims_made" && <Table rows={d.claims_made} empty="You haven't claimed anything yet." cols={[
             ["Donation", (r) => <Link to={`/listing/${r.listing_id}`} className="linkish">{r.title}</Link>],
             ["From", (r) => r.donor], ["Quantity", (r) => `${fmtQty(r.quantity)} ${r.unit}`],

@@ -105,6 +105,10 @@ export const api = {
   createOrg: (body) => request("/api/orgs", { method: "POST", body }),
   dashboard: (orgId) => request(`/api/orgs/${orgId}/dashboard`),
   withdraw: (id) => request(`/api/listings/${id}/withdraw`, { method: "POST" }),
+  tracking: (poolId) => request(`/api/pools/${poolId}/tracking`),
+  collectStop: (poolId, listingId) => request(`/api/pools/${poolId}/stops/${listingId}/collected`, { method: "POST" }),
+  deliverPool: (poolId) => request(`/api/pools/${poolId}/delivered`, { method: "POST" }),
+  inspectImage: (listingId, imageId) => request(`/api/listings/${listingId}/images/${imageId}/inspect`, { method: "POST" }),
   integrations: () => request("/api/integrations/status"),
 };
 

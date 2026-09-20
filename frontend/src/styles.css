@@ -401,3 +401,26 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .table th { text-align: left; font-size: 12.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
 .table td { padding: 12px 16px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .table tr:last-child td { border-bottom: 0; }
+
+/* tracking */
+.stop-no { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--line); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.legend { width: 14px; height: 14px; border-radius: 5px; border: 1.5px solid var(--ink); display: inline-block; }
+.timeline { list-style: none; margin: 0; padding: 0 0 0 22px; position: relative; }
+.timeline::before { content: ""; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
+.timeline li { position: relative; padding: 6px 0; display: flex; flex-direction: column; color: var(--muted); }
+.timeline li b { color: var(--ink-2); font-size: 15px; }
+.timeline li::before { content: ""; position: absolute; left: -22px; top: 12px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line); }
+.timeline li.done b { color: var(--ink); }
+.timeline li.done::before { background: var(--ok); border-color: var(--ok); }
+.leaflet-container { font: inherit; background: var(--surface-2); }
+
+/* defect heatmap */
+.defect-frame { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--surface-2); line-height: 0; }
+.defect-frame img { width: 100%; height: 100%; object-fit: cover; }
+.defect-box { position: absolute; border: 2.5px solid; border-radius: 8px; padding: 0; cursor: pointer; background: transparent; transition: background .15s; }
+.defect-box .defect-tag { position: absolute; left: -2px; top: -22px; font: 700 11.5px/1.6 var(--body); color: #fff; padding: 1px 7px; border-radius: 6px; white-space: nowrap; opacity: 0; transition: opacity .15s; }
+.defect-box.on .defect-tag, .defect-box:focus-visible .defect-tag { opacity: 1; }
+.defect-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.defect-list li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); flex-wrap: wrap; }
+.defect-list li.on { border-color: var(--ink); }
+.dot-sev { width: 12px; height: 12px; border-radius: 50%; flex: none; }

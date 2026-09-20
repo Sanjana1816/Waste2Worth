@@ -4,6 +4,7 @@ import { api, ApiError, errorText, imgUrl, inr, pretty } from "../api";
 import { usePersona, useToast } from "../app-state";
 import Illo, { CATEGORY_ILLO } from "../components/Illo";
 import { ErrorBox, Field, RouteChip, SpeakButton, Spinner } from "../components/ui";
+import { DefectSummary } from "../components/DefectMap";
 
 const STEPS = [["snap", "Snap"], ["details", "Details"], ["photos", "Proof photos"], ["review", "Publish"]];
 const SELLER_ROLES = ["business", "brand", "individual"];
@@ -42,7 +43,7 @@ function SnapStep({ categories, onDone }) {
   const [err, setErr] = useState(null);
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
 
-  const add = (list) => setFiles((xs) => [...xs, ...Array.from(list).filter((f) => f.type.startsWith("image/"))].slice(0, 3));
+  const add = (list) => setFiles((xs) => [...xs, ...Array.from(list).filter((f) => f.type.startsWith("image/"))].slice(0, 2));
   const analyze = async () => {
     setBusy(true); setErr(null);
     try { setResult(await api.analyze(files, hint)); } catch (e) { setErr(errorText(e)); } finally { setBusy(false); }
@@ -55,7 +56,7 @@ function SnapStep({ categories, onDone }) {
         <div className={`dropzone ${drag ? "drag" : ""}`} onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
           onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); add(e.dataTransfer.files); }}>
           <Illo name="tiles" className="" />
-          <p style={{ fontWeight: 700, marginTop: 8 }}>Drop up to 3 photos of your item</p>
+          <p style={{ fontWeight: 700, marginTop: 8 }}>Drop 1 or 2 photos of your item</p>
           <p className="small muted">Or take them now. Daylight works best.</p>
           <span className="btn btn-dark upload-btn" style={{ marginTop: 14 }}>
             Choose photos
@@ -274,8 +275,9 @@ function DetailsStep({ categories, spec, form, setForm, errors, onCategory, onSu
 }
 
 /* ---------- step 3: required proof photos ---------- */
-function ShotSlot({ shot, required, upload, onUpload }) {
+function ShotSlot({ shot, required, upload, onUpload, onScan }) {
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [err, setErr] = useState(null);
   const state = upload ? (upload.quality_ok ? "ok" : "bad") : "";
   const pick = async (file) => {
@@ -294,15 +296,35 @@ function ShotSlot({ shot, required, upload, onUpload }) {
         : <div className="alert alert-bad small"><b>Please retake</b><ul>{(upload.problems || []).map((p) => <li key={p}>{p}</li>)}</ul></div>)}
       {upload?.preview && <p>{shot.help}</p>}
       {err && <div className="error-text">{err}</div>}
-      <span className={`btn btn-sm ${upload?.quality_ok ? "" : "btn-dark"} upload-btn`}>
-        {busy ? <Spinner /> : upload ? "Retake" : "Add photo"}
-        <input type="file" accept="image/*" capture="environment" onChange={(e) => pick(e.target.files?.[0])} disabled={busy} aria-label={`Upload ${shot.label}`} />
-      </span>
+      <div className="row" style={{ gap: 8 }}>
+        <span className={`btn btn-sm ${upload?.quality_ok ? "" : "btn-dark"} upload-btn`}>
+          {busy ? <Spinner /> : upload ? "Retake" : "Add photo"}
+          <input type="file" accept="image/*" capture="environment" onChange={(e) => pick(e.target.files?.[0])} disabled={busy} aria-label={`Upload ${shot.label}`} />
+        </span>
+        {upload?.quality_ok && upload.id && (
+          <button type="button" className="btn btn-sm" disabled={scanning}
+            onClick={async () => { setScanning(true); setErr(null);
+              try { await onScan(upload.id); } catch (e) { setErr(errorText(e)); } finally { setScanning(false); } }}>
+            {scanning ? <><Spinner /> Scanning…</> : upload.defect_map ? "Rescan damage" : "Scan for damage"}
+          </button>
+        )}
+      </div>
+      {upload?.defect_map && (
+        <div className="stack" style={{ gap: 8 }}>
+          <DefectSummary map={upload.defect_map} />
+          {upload.defect_map.summary && <p className="small">{upload.defect_map.summary}</p>}
+          {upload.defect_map.warnings?.[0] && <p className="small muted">{upload.defect_map.warnings[0]}</p>}
+        </div>
+      )}
     </div>
   );
 }
 
 function PhotosStep({ spec, listing, readiness, setReadiness, uploads, setUploads, onNext }) {
+  const scan = async (shotKey, imageId) => {
+    const map = await api.inspectImage(listing.id, imageId);
+    setUploads((u) => ({ ...u, [shotKey]: { ...u[shotKey], defect_map: map } }));
+  };
   const brandSecond = listing.source_type === "brand_second";
   const shots = [...spec.shots, ...(brandSecond ? spec.brand_second_extras?.shots || [] : [])];
   const requiredKeys = new Set([...readiness.missing_shots, ...readiness.retake_shots].map((s) => s.shot));
@@ -327,7 +349,10 @@ function PhotosStep({ spec, listing, readiness, setReadiness, uploads, setUpload
         {spec.color_critical && <p className="small muted">Colour matters for {spec.label.toLowerCase()}. For the colour reference, put the item in the middle of a plain white A4 sheet. We use the paper to cancel out your lighting.</p>}
       </div>
       <div className="shots">
-        {shots.map((s) => <ShotSlot key={s.key} shot={s} required={requiredKeys.has(s.key)} upload={uploads[s.key]} onUpload={onUpload} />)}
+        {shots.map((s) => (
+          <ShotSlot key={s.key} shot={s} required={requiredKeys.has(s.key)} upload={uploads[s.key]}
+                    onUpload={onUpload} onScan={(imageId) => scan(s.key, imageId)} />
+        ))}
       </div>
       <div className="row"><button className="btn btn-primary" onClick={onNext} disabled={outstanding > 0 || readiness.image_count < readiness.min_images}>Review and publish</button>
         {outstanding > 0 && <span className="small muted">Add the required photos to continue.</span>}</div>

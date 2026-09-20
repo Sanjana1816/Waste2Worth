@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Waste2Worth">
+  <title>Waste2Worth mark</title>
+  <!-- the numeral 2 as one ribbon: arc, diagonal, baseline -->
+  <path d="M30 46 C30 22 62 14 79 30 C93 44 80 60 64 71 L40 87 H82"
+        fill="none" stroke="#17171C" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- the baseline flows out into an arrowhead: a second life, moving on -->
+  <path d="M78 69 L104 87 L78 105 Z" fill="#C6E77A" stroke="#17171C" stroke-width="11" stroke-linejoin="round"/>
+</svg>

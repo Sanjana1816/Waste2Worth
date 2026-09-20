@@ -110,6 +110,7 @@ def integrations():
         "elevenlabs_calls": bool(settings.elevenlabs_agent_id and settings.elevenlabs_phone_number_id),
         "vakh_connected": Path(settings.vakh_token_file).exists() or bool(settings.vakh_tokens_json),
         "vakh_post_tool": settings.vakh_post_tool,
+        "public_app_url": settings.public_app_url,
     }
 
 

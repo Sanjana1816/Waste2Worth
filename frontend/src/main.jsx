@@ -13,6 +13,7 @@ import Food from "./pages/Food";
 import Impact from "./pages/Impact";
 import Join from "./pages/Join";
 import Dashboard from "./pages/Dashboard";
+import Track from "./pages/Track";
 
 function PersonaPicker() {
   const { orgs, persona, choose, status } = usePersona();
@@ -42,10 +43,14 @@ function Nav() {
     <header className="nav">
       <div className="container nav-inner">
         <Link to="/" className="logo" aria-label="Waste2Worth home">
-          <span className="logo-mark">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17171C" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+          <span className="logo-mark" aria-hidden="true">
+            <svg viewBox="0 0 120 120" width="24" height="24">
+              <path d="M34 48 C34 27 62 20 77 34 C89 46 78 60 64 70 L44 84 H78" fill="none" stroke="#17171C"
+                    strokeWidth="13" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M74 68 L96 84 L74 100 Z" fill="#FFFFFF" stroke="#17171C" strokeWidth="9" strokeLinejoin="round" />
+            </svg>
           </span>
-          waste2worth
+          waste<span style={{ color: "#5F7F14" }}>2</span>worth
         </Link>
         <nav className="nav-links" aria-label="Main">
           <NavLink to="/explore">Explore</NavLink>
@@ -94,6 +99,7 @@ function App() {
           <Route path="/impact" element={<Impact />} />
           <Route path="/join" element={<Join />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/track/:id" element={<Track />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

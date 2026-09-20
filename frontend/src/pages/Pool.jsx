@@ -120,7 +120,12 @@ export default function Pool() {
                   <button className="btn btn-primary" onClick={confirm} disabled={busy}>Confirm · {inr(pool.total)}</button>
                   <button className="btn" onClick={cancel} disabled={busy}>Release</button></div>
               )}
-              {pool?.status === "confirmed" && <div className="alert alert-ok">Pooled order #{pool.id} confirmed: {fmtQty(pool.quantity)} {pool.unit} for {inr(pool.total)}. We'll schedule one combined pickup.</div>}
+              {pool?.status === "confirmed" && (
+                <div className="alert alert-ok row between">
+                  <span>Pooled order #{pool.id} confirmed: {fmtQty(pool.quantity)} {pool.unit} for {inr(pool.total)}.</span>
+                  <Link to={`/track/${pool.id}`} className="btn btn-sm btn-primary">Track pickup</Link>
+                </div>
+              )}
               {pool?.status === "cancelled" && <div className="alert alert-warn">Reservation released.</div>}
             </>
           )}

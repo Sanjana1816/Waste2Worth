@@ -205,3 +205,14 @@ def test_damage_scan_marks_regions_on_a_photo(client, monkeypatch):
     saved = next(i for i in again["images"] if i["id"] == image_id)["defect_map"]
     assert saved["regions"][0]["label"] == "Torn mesh" and "torn" in saved["summary"].lower()
     assert client.post(f"/api/listings/{chairs['id']}/images/999999/inspect").status_code == 404
+
+
+def test_voice_pickup_deadline_is_not_a_cooking_time():
+    from datetime import timezone
+    from app.services.voice import parse_food_text
+    d = parse_food_text("40 plates of veg biryani are ready for pickup before 7 PM")
+    assert d["attributes"]["dish_name"] == "Biryani"   # "veg" becomes the diet, "ready for pickup before 7 PM" is dropped
+    cooked = d["attributes"]["cooked_at"]
+    from datetime import datetime
+    assert (datetime.now(timezone.utc) - datetime.fromisoformat(cooked)).total_seconds() < 120  # "just now", not 7pm
+    assert parse_food_text("30 plates dal rice cooked at 6 pm")["attributes"]["cooked_at"].endswith("+00:00")

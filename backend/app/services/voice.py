@@ -64,10 +64,12 @@ async def call_ngo(to_number: str, variables: dict) -> dict:
 NUM_WORDS = {"ten": 10, "fifteen": 15, "twenty": 20, "twenty five": 25, "thirty": 30, "forty": 40,
              "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "hundred": 100, "bees": 20, "tees": 30,
              "chalis": 40, "pachas": 50, "sau": 100}
-FILLER = r"\b(we|have|has|there|is|are|about|around|of|left|over|leftover|surplus|extra|today|please|and|the|a|an|" \
+TIME_RE = r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)\b"
+FILLER = r"\b(we|have|has|there|is|are|about|around|of|for|left|over|leftover|surplus|extra|today|please|and|the|a|an|" \
          r"cooked|made|at|in|kept|fresh|some|approx|approximately|containers?|boxes|packed|trays?|vessels?|" \
          r"fridge|refrigerated|hot|warm|pure|only|bache|bacha|bachi|hain|hai|khana|rakha|rakhe|pada|pade|" \
-         r"se|ka|ki|ke|mein|me|aur|abhi|lagbhag|taiyar)\b"
+         r"se|ka|ki|ke|mein|me|aur|abhi|lagbhag|taiyar|ready|pickup|pick|up|collect|collection|" \
+         r"before|by|till|until|sharp|available|remaining|balance)\b"
 
 
 def parse_food_text(text: str, now: datetime | None = None) -> dict:
@@ -101,8 +103,16 @@ def parse_food_text(text: str, now: datetime | None = None) -> dict:
     packaging = "sealed_containers" if re.search(r"container|box|packed|parcel", t) else \
         "bulk_vessel" if re.search(r"vessel|handi|degchi|pot|patila", t) else "covered_trays"
 
+    # "cooked at 7 pm" is a cooking time; "pick up before 7 pm" is a deadline, so ignore that one.
     cooked_at = now
-    tm = re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)\b", t)
+    tm = None
+    for candidate in re.finditer(TIME_RE, t):
+        lead = t[max(0, candidate.start() - 24):candidate.start()]
+        if re.search(r"\b(before|by|till|until|upto|up to|pickup|pick up|collect)\b", lead):
+            continue
+        tm = candidate
+        if re.search(r"\b(cooked|made|prepared|banaya|banayi|ready)\b", lead):
+            break
     if tm:
         h = int(tm.group(1)) % 12 + (12 if tm.group(3) == "pm" else 0)
         local = now.astimezone(IST).replace(hour=h, minute=int(tm.group(2) or 0), second=0, microsecond=0)
@@ -111,9 +121,10 @@ def parse_food_text(text: str, now: datetime | None = None) -> dict:
         cooked_at = local.astimezone(timezone.utc)
 
     dish = t
-    for pat in (m.group(0) if m else None, tm.group(0) if tm else None):
-        if pat:
-            dish = dish.replace(pat, " ")
+    if m:
+        dish = dish.replace(m.group(0), " ")
+    for mt in re.finditer(TIME_RE, dish):          # drop every clock time, deadline or not
+        dish = dish.replace(mt.group(0), " ")
     dish = re.sub(r"\b(non[\s-]?veg|veg|vegetarian|jain|vegan)\b", " ", dish)
     dish = re.sub(FILLER, " ", dish)
     dish = re.sub(r"[^a-z\s]", " ", dish)
