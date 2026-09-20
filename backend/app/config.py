@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     vision_provider: str = "mock"
     groq_api_key: str | None = None
     groq_vision_model: str = "qwen/qwen3.8-27b"
+    # Each image costs ~2048 tokens and Groq's free tier allows 8000 tokens/minute, so keep requests small.
+    vision_max_images: int = 2
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
     ollama_url: str = "http://localhost:11434"

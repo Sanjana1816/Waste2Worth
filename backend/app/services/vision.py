@@ -6,6 +6,7 @@ If the configured provider fails, we fall back to the mock so a live demo never 
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import json
@@ -147,7 +148,7 @@ async def _groq(prompt: str, images: list[str]) -> dict:
     if not settings.groq_api_key:
         raise RuntimeError("GROQ_API_KEY is not set")
     content = [{"type": "text", "text": prompt}] + [
-        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b}"}} for b in images[:3]]
+        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b}"}} for b in images]
     body = {"model": settings.groq_vision_model, "temperature": 0.2,
             "messages": [{"role": "user", "content": content}],
             "response_format": {"type": "json_object"},
@@ -197,15 +198,29 @@ async def analyze(images: list[bytes], hint_category: str | None = None, manufac
     if provider == "mock":
         return clean(mock(hint_category, filenames), "mock")
     prompt = build_prompt(hint_category, manufacturer_color, notes)
-    encoded = [_prep(b) for b in images[:4]]
+    encoded = [_prep(b) for b in images[:settings.vision_max_images]]
+    call = {"groq": _groq, "gemini": _gemini, "ollama": _ollama}.get(provider)
     try:
-        call = {"groq": _groq, "gemini": _gemini, "ollama": _ollama}.get(provider)
         if call is None:
             raise RuntimeError(f"unknown VISION_PROVIDER '{provider}'")
-        raw = await call(prompt, encoded)
+        try:
+            raw = await call(prompt, encoded)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code != 429:
+                raise
+            # Free tiers are rate-limited per minute: wait the advertised time and try once more,
+            # with a single image so the retry is well under the limit.
+            wait = min(float(e.response.headers.get("retry-after", 8) or 8), 20)
+            log.info("%s rate-limited; retrying in %.0fs with one image", provider, wait)
+            await asyncio.sleep(wait)
+            raw = await call(prompt, encoded[:1])
         return clean(raw, provider)
     except (httpx.HTTPError, RuntimeError, KeyError, IndexError, ValueError, ValidationError) as e:
         log.warning("vision provider %s failed: %s", provider, e)
         result = clean(mock(hint_category, filenames), "mock")
-        result.warnings.append(f"The {provider} AI was unavailable ({type(e).__name__}), so this is a basic guess. Check the details.")
+        busy = isinstance(e, httpx.HTTPStatusError) and e.response.status_code == 429
+        result.warnings.append(
+            "The AI is busy right now (free-tier limit). Wait about a minute and try again, or just fill in the form yourself."
+            if busy else
+            f"The {provider} AI was unavailable ({type(e).__name__}), so this is a basic guess. Check the details.")
         return result
